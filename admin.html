@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guiño guiño · Panel</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E😉%3C/text%3E%3C/svg%3E">
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{--bg:#FBF6EF;--ink:#2B2320;--soft:#7A6E68;--line:#EADFD3;--accent:#D9573F;--accent-soft:#FBE3DC;--ok:#2F6B57;--ok-soft:#DCEFE6;--bad:#B3261E}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  main{max-width:760px;margin:0 auto;padding:24px 18px 60px}
+  h1,h2{font-family:Georgia,serif;font-weight:normal}
+  h1{margin:.2em 0}
+  .muted{color:var(--soft)} .small{font-size:.85rem}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}
+  .btn{border:0;border-radius:999px;padding:.6em 1.1em;font:inherit;font-weight:600;cursor:pointer;background:var(--accent);color:#fff}
+  .btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
+  .btn.bad{background:transparent;border:1.5px solid #F0C9C5;color:var(--bad)}
+  .btn[disabled]{opacity:.5}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  label{display:block;font-weight:600;margin:12px 0 4px}
+  input{font:inherit;padding:.6em .8em;border:1.5px solid var(--line);border-radius:10px;width:100%;background:#fff}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:560px){.grid2{grid-template-columns:1fr}}
+  code{background:#F3ECE3;padding:.15em .4em;border-radius:6px;font-size:.88em;word-break:break-all}
+  .tag{display:inline-block;border-radius:999px;padding:.15em .7em;font-size:.8rem;font-weight:600}
+  .tag.on{background:var(--ok-soft);color:var(--ok)} .tag.off{background:#EEE;color:#666}
+  .qr{margin-top:12px;padding:12px;background:#fff;border:1px dashed var(--line);border-radius:12px;display:inline-block}
+  .warn{background:#FFF3C9;color:#6B5200;border-radius:12px;padding:12px 14px}
+  .ev h2{margin:.1em 0}
+</style>
+</head>
+<body>
+<main id="m"><p class="muted">Cargando…</p></main>
+
+<script type="module">
+const CFG = window.GUINO || {};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const M = $("#m");
+
+if (!CFG.firebaseConfig?.apiKey) {
+  M.innerHTML = `<h1>Panel de ${esc(CFG.appName || "Guiño guiño")}</h1>
+  <div class="warn">Todavía no has pegado la configuración de Firebase en <code>config.js</code>. Sigue los pasos del archivo <b>LEEME.md</b>.<br><br>
+  Mientras tanto puedes ver la web de invitados en modo demo: <a href="index.html">abrir demo</a>.</div>`;
+  throw new Error("Sin configuración");
+}
+
+const V = "10.12.2";
+const [appM, authM, fs] = await Promise.all([
+  import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
+  import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`),
+  import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`)
+]);
+const app = appM.initializeApp(CFG.firebaseConfig);
+const auth = authM.getAuth(app);
+const db = fs.getFirestore(app);
+const { doc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, Timestamp, serverTimestamp, writeBatch } = fs;
+
+const guestUrl = id => new URL(`index.html?e=${encodeURIComponent(id)}`, location.href).href;
+const slug = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30);
+const rand = () => Math.random().toString(36).slice(2, 6);
+const fmt = ms => new Date(ms).toLocaleString("es-ES", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const toLocalInput = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+authM.onAuthStateChanged(auth, user => {
+  if (!user || user.isAnonymous) return renderLogin();
+  renderPanel(user);
+});
+
+function renderLogin() {
+  M.innerHTML = `<h1>Panel de ${esc(CFG.appName || "Guiño guiño")}</h1>
+    <p class="muted">Entra con tu cuenta de Google para crear eventos y sacar el QR.</p>
+    <button class="btn" id="login">Entrar con Google</button>
+    <p class="small muted" id="lerr"></p>`;
+  $("#login").onclick = async () => {
+    try { await authM.signInWithPopup(auth, new authM.GoogleAuthProvider()); }
+    catch (e) { $("#lerr").textContent = "No se ha podido entrar: " + (e.code || e.message) + ". ¿Has activado Google en Authentication → Sign-in method?"; }
+  };
+}
+
+async function renderPanel(user) {
+  M.innerHTML = `<div class="row" style="justify-content:space-between">
+      <h1>Panel de ${esc(CFG.appName || "Guiño guiño")}</h1>
+      <button class="btn ghost" id="out">Salir</button></div>
+    <p class="small muted">Sesión: ${esc(user.email || "")}</p>
+    <div id="admincheck"></div>
+    <div class="card">
+      <h2>Nuevo evento</h2>
+      <div class="grid2">
+        <div><label for="n">Nombre (lo verán los invitados)</label><input id="n" placeholder="Boda de Ana y Luis"></div>
+        <div><label for="end">Se cierra el radar a las</label><input id="end" type="datetime-local"></div>
+      </div>
+      <label for="code">Código del enlace</label><input id="code" placeholder="se genera solo">
+      <div class="row" style="margin-top:14px"><button class="btn" id="create">Crear evento</button><span class="small muted" id="cmsg"></span></div>
+    </div>
+    <div id="events"></div>`;
+  $("#out").onclick = () => authM.signOut(auth);
+  const end = new Date(); end.setHours(end.getHours() + 8, 0, 0, 0); $("#end").value = toLocalInput(end);
+  $("#n").oninput = () => { $("#code").placeholder = $("#n").value ? slug($("#n").value) + "-" + "xxxx" : "se genera solo"; };
+  $("#create").onclick = () => createEvent(user);
+  loadEvents(user);
+}
+
+function showNotAdmin(user) {
+  $("#admincheck").innerHTML = `<div class="warn"><b>Último paso para ser administrador:</b> copia tu UID y pégalo en <code>firestore.rules</code> en lugar de <code>PEGA_AQUI_TU_UID</code>. Después pega las reglas en Firebase (Firestore → Reglas → Publicar) y recarga esta página.<br><br>
+    Tu UID: <code id="uid">${esc(user.uid)}</code> <button class="btn ghost" id="cp" style="padding:.3em .8em">Copiar</button></div>`;
+  $("#cp").onclick = () => navigator.clipboard.writeText(user.uid).then(() => $("#cp").textContent = "¡Copiado!");
+}
+
+async function createEvent(user) {
+  const name = $("#n").value.trim(), endVal = $("#end").value;
+  const code = slug($("#code").value.trim() || ($("#n").value ? slug($("#n").value) + "-" + rand() : ""));
+  const msg = $("#cmsg");
+  if (!name || !endVal || !code) return msg.textContent = "Pon nombre y hora de cierre.";
+  const endsAt = new Date(endVal);
+  if (endsAt <= new Date()) return msg.textContent = "La hora de cierre tiene que ser futura.";
+  $("#create").disabled = true; msg.textContent = "Creando…";
+  try {
+    await setDoc(doc(db, "events", code), { name, active: true, endsAt: Timestamp.fromDate(endsAt), createdAt: serverTimestamp(), owner: user.uid });
+    msg.textContent = "¡Creado!"; $("#n").value = ""; $("#code").value = "";
+    loadEvents(user);
+  } catch (e) {
+    msg.textContent = e.code === "permission-denied" ? "Sin permiso: aún no eres admin (mira el aviso amarillo)." : "Error: " + (e.code || e.message);
+    if (e.code === "permission-denied") showNotAdmin(user);
+  } finally { $("#create").disabled = false; }
+}
+
+async function loadEvents(user) {
+  const box = $("#events");
+  box.innerHTML = `<p class="muted">Cargando eventos…</p>`;
+  let snap;
+  try { snap = await getDocs(query(collection(db, "events"), where("owner", "==", user.uid))); }
+  catch (e) {
+    box.innerHTML = "";
+    if (e.code === "permission-denied") return showNotAdmin(user);
+    box.innerHTML = `<p class="muted">Error cargando eventos: ${esc(e.code || e.message)}</p>`; return;
+  }
+  $("#admincheck").innerHTML = "";
+  const evs = snap.docs.map(d => ({ id: d.id, ...d.data(), endsMs: d.data().endsAt?.toMillis?.() ?? 0 })).sort((a, b) => b.endsMs - a.endsMs);
+  if (!evs.length) { box.innerHTML = `<p class="muted">Aún no tienes eventos.</p>`; return; }
+  box.innerHTML = evs.map(ev => {
+    const open = ev.active !== false && ev.endsMs > Date.now();
+    return `<div class="card ev" data-id="${esc(ev.id)}">
+      <div class="row" style="justify-content:space-between"><h2>${esc(ev.name)}</h2><span class="tag ${open ? "on" : "off"}">${open ? "Abierto" : "Cerrado"}</span></div>
+      <p class="small muted">Cierra: ${esc(fmt(ev.endsMs))} · <span class="stats">contando…</span></p>
+      <p class="small">Enlace: <code>${esc(guestUrl(ev.id))}</code></p>
+      <div class="row">
+        <button class="btn ghost" data-a="copy">Copiar enlace</button>
+        <button class="btn ghost" data-a="qr">Ver QR</button>
+        <button class="btn ghost" data-a="poster">Imprimir cartel</button>
+        <button class="btn ghost" data-a="toggle">${ev.active !== false ? "Cerrar radar" : "Reabrir radar"}</button>
+        <button class="btn bad" data-a="wipe">Borrar fichas</button>
+        <button class="btn bad" data-a="del">Eliminar evento</button>
+      </div>
+      <div class="qrwrap"></div></div>`;
+  }).join("");
+  evs.forEach(ev => countStats(ev.id));
+  box.onclick = async (e) => {
+    const b = e.target.closest("[data-a]"); if (!b) return;
+    const card = b.closest(".ev"), id = card.dataset.id, ev = evs.find(x => x.id === id);
+    const a = b.dataset.a;
+    if (a === "copy") { await navigator.clipboard.writeText(guestUrl(id)); b.textContent = "¡Copiado!"; }
+    if (a === "qr") { const w = card.querySelector(".qrwrap"); if (w.innerHTML) { w.innerHTML = ""; return; } drawQR(w, id); }
+    if (a === "poster") printPoster(ev);
+    if (a === "toggle") { await updateDoc(doc(db, "events", id), { active: ev.active === false }); loadEvents(user); }
+    if (a === "wipe" && confirm(`¿Borrar todas las fichas, guiños y matches de "${ev.name}"? No se puede deshacer.`)) { b.disabled = true; await wipe(id); countStats(id); b.disabled = false; }
+    if (a === "del" && confirm(`¿Eliminar "${ev.name}" y todos sus datos?`)) { await wipe(id); await deleteDoc(doc(db, "events", id)); loadEvents(user); }
+  };
+}
+
+async function countStats(id) {
+  const el = document.querySelector(`.ev[data-id="${CSS.escape(id)}"] .stats`); if (!el) return;
+  try {
+    const [p, m] = await Promise.all([getDocs(collection(db, "events", id, "profiles")), getDocs(collection(db, "events", id, "matches"))]);
+    const s = await getDocs(collection(db, "events", id, "signals"));
+    el.textContent = `${p.size} fichas · ${s.size} guiños · ${m.size} matches`;
+  } catch { el.textContent = "sin datos"; }
+}
+
+async function wipe(id) {
+  for (const name of ["profiles", "signals", "matches"]) {
+    const snap = await getDocs(collection(db, "events", id, name));
+    for (let i = 0; i < snap.docs.length; i += 400) {
+      const batch = writeBatch(db);
+      snap.docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+  }
+}
+
+function drawQR(el, id, size = 240) {
+  el.innerHTML = `<div class="qr"><div class="q"></div><div class="row" style="margin-top:10px"><button class="btn ghost" data-dl>Descargar PNG</button></div></div>`;
+  new QRCode(el.querySelector(".q"), { text: guestUrl(id), width: size, height: size, correctLevel: QRCode.CorrectLevel.M });
+  el.querySelector("[data-dl]").onclick = () => {
+    const c = el.querySelector("canvas"); const a = document.createElement("a");
+    a.href = c.toDataURL("image/png"); a.download = `qr-${id}.png`; a.click();
+  };
+}
+
+function printPoster(ev) {
+  const tmp = document.createElement("div");
+  new QRCode(tmp, { text: guestUrl(ev.id), width: 600, height: 600, correctLevel: QRCode.CorrectLevel.M });
+  const png = tmp.querySelector("canvas").toDataURL("image/png");
+  const w = window.open("", "_blank");
+  if (!w) return alert("Permite las ventanas emergentes para imprimir el cartel.");
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Cartel ${esc(ev.name)}</title>
+  <style>@page{size:A4;margin:0}body{margin:0;font-family:Georgia,serif;color:#2B2320;background:#FBF6EF;text-align:center}
+  .p{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px}
+  .k{letter-spacing:.15em;text-transform:uppercase;color:#D9573F;font-size:18px}
+  h1{font-size:54px;font-weight:normal;margin:.3em 0 .1em;line-height:1.1}
+  p{font-size:22px;color:#5A4E48;max-width:520px;margin:.4em auto}
+  img{width:330px;height:330px;margin:28px 0;padding:18px;background:#fff;border-radius:24px}
+  .s{font-size:15px;color:#7A6E68}.gg{font-style:italic;font-size:30px;color:#D9573F;margin-top:6px}</style></head><body><div class="p">
+  <div class="k">${esc(ev.name)}</div>
+  <h1>¿Estás soltero<br>o soltera?</h1>
+  <p>Escanea y descubre si alguien de aquí quiere conocerte…</p>
+  <div class="gg">guiño guiño 😉</div>
+  <img src="${png}" alt="QR">
+  <p class="s">Nadie sabrá que le has guiñado… salvo que te guiñe también.<br>Todo se borra al terminar la fiesta.</p>
+  </div><script>window.onload=()=>setTimeout(()=>print(),300)<\/script></body></html>`);
+  w.document.close();
+}
+</script>
+</body>
+</html>

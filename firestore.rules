@@ -1,0 +1,81 @@
+rules_version = '2';
+
+// ════════════════════════════════════════════════════════════════
+//  Guiño guiño — reglas de seguridad de Firestore
+//  Pega esto en: Firestore Database → Reglas → Publicar
+//
+//  ⚠️  Cambia PEGA_AQUI_TU_UID por el UID que te enseña admin.html
+//      al entrar con Google. Mientras no lo cambies, nadie podrá
+//      crear eventos (pero tampoco hay riesgo).
+// ════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isAdmin()  { return signedIn() && request.auth.uid in ['PEGA_AQUI_TU_UID']; }
+    function eventPath(eid) { return /databases/$(database)/documents/events/$(eid); }
+    function eventOpen(eid) {
+      let e = get(eventPath(eid)).data;
+      return e.active == true && request.time < e.endsAt;
+    }
+    function signalPath(eid, sid) { return /databases/$(database)/documents/events/$(eid)/signals/$(sid); }
+
+    match /events/{eid} {
+      // Cualquiera con el enlace puede leer el nombre y la hora de fin;
+      // solo tú puedes listar, crear, cerrar o borrar eventos.
+      allow get: if signedIn();
+      allow list, write: if isAdmin();
+
+      // ── Fichas ──────────────────────────────────────────────
+      match /profiles/{uid} {
+        allow read: if isAdmin() || (signedIn() && eventOpen(eid));
+        allow create, update: if signedIn() && request.auth.uid == uid && eventOpen(eid)
+          && request.resource.data.keys().hasOnly(['name', 'gender', 'interest', 'hint', 'selfie', 'updatedAt'])
+          && request.resource.data.name is string     && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 24
+          && request.resource.data.hint is string     && request.resource.data.hint.size() > 0 && request.resource.data.hint.size() <= 80
+          && request.resource.data.gender in ['mujer', 'hombre', 'otro']
+          && request.resource.data.interest in ['mujeres', 'hombres', 'todos']
+          && request.resource.data.selfie is string   && request.resource.data.selfie.size() < 150000
+          && request.resource.data.selfie.matches('^data:image/jpeg;base64,.*');
+        allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      }
+
+      // ── Guiños (señales) ─────────────────────────────────────────────
+      // Id = "<de>_<para>". La clave de la privacidad:
+      // puedes ver una señal dirigida a ti SOLO si tú ya has mandado
+      // la tuya a esa persona. Así nadie descubre quién le ha elegido
+      // sin elegir también.
+      match /signals/{sid} {
+        allow create: if signedIn() && eventOpen(eid)
+          && request.resource.data.keys().hasOnly(['from', 'to', 'createdAt'])
+          && request.resource.data.from == request.auth.uid
+          && request.resource.data.to is string
+          && request.resource.data.to != request.auth.uid
+          && sid == request.auth.uid + '_' + request.resource.data.to
+          && exists(/databases/$(database)/documents/events/$(eid)/profiles/$(request.auth.uid));
+        allow get: if isAdmin() || (signedIn() && (
+             resource == null
+          || resource.data.from == request.auth.uid
+          || (resource.data.to == request.auth.uid
+              && exists(signalPath(eid, request.auth.uid + '_' + resource.data.from)))));
+        allow list: if isAdmin() || (signedIn() && resource.data.from == request.auth.uid);
+        allow delete: if isAdmin() || (signedIn() && resource.data.from == request.auth.uid);
+      }
+
+      // ── Matches ─────────────────────────────────────────────
+      // Solo se puede crear si existen las dos señales cruzadas.
+      match /matches/{mid} {
+        allow create: if signedIn() && eventOpen(eid)
+          && request.resource.data.keys().hasOnly(['members', 'createdAt'])
+          && request.resource.data.members.size() == 2
+          && request.auth.uid in request.resource.data.members
+          && mid == request.resource.data.members[0] + '_' + request.resource.data.members[1]
+          && exists(signalPath(eid, request.resource.data.members[0] + '_' + request.resource.data.members[1]))
+          && exists(signalPath(eid, request.resource.data.members[1] + '_' + request.resource.data.members[0]));
+        allow read: if isAdmin() || (signedIn() && request.auth.uid in resource.data.members);
+        allow delete: if isAdmin();
+      }
+    }
+  }
+}

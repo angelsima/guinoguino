@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FBF6EF">
+<title>Guiño guiño</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E😉%3C/text%3E%3C/svg%3E">
+<script src="config.js"></script>
+<style>
+  :root{
+    --bg:#FBF6EF; --card:#FFFFFF; --ink:#2B2320; --soft:#7A6E68; --line:#EADFD3;
+    --accent:#D9573F; --accent-ink:#FFFFFF; --accent-soft:#FBE3DC; --ok:#2F6B57; --ok-soft:#DCEFE6;
+    --radius:18px; --shadow:0 6px 24px rgba(60,35,20,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  #app{max-width:560px;margin:0 auto;padding:20px 18px calc(110px + env(safe-area-inset-bottom))}
+  h1,h2,.serif{font-family:Georgia,"Times New Roman",serif;font-weight:normal;letter-spacing:-.01em}
+  h1{font-size:2rem;line-height:1.15;margin:.3em 0 .4em}
+  h2{font-size:1.45rem;margin:.2em 0 .6em}
+  p{margin:.4em 0 .9em}
+  .muted{color:var(--soft)}
+  .small{font-size:.86rem}
+  .center{text-align:center}
+  .brand{font-family:Georgia,serif;font-size:1rem;color:var(--accent);letter-spacing:.08em;text-transform:uppercase}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin:14px 0}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4em;border:0;border-radius:999px;padding:.85em 1.4em;font:inherit;font-weight:600;cursor:pointer;background:var(--accent);color:var(--accent-ink);text-decoration:none;transition:transform .08s,opacity .2s}
+  .btn:active{transform:scale(.97)}
+  .btn[disabled]{opacity:.45;cursor:default}
+  .btn.block{display:flex;width:100%}
+  .btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+  .btn.soft{background:var(--accent-soft);color:var(--accent)}
+  .btn.okb{background:var(--ok-soft);color:var(--ok)}
+  .btn.small{padding:.55em 1em;font-size:.88rem}
+  .steps{list-style:none;padding:0;margin:18px 0}
+  .steps li{display:flex;gap:12px;align-items:flex-start;margin:12px 0}
+  .steps b.n{flex:none;width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:.9rem}
+  label.f{display:block;font-weight:600;margin:16px 0 6px}
+  input[type=text]{width:100%;font:inherit;padding:.75em .9em;border:1.5px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
+  input[type=text]:focus{outline:none;border-color:var(--accent)}
+  .seg{display:flex;flex-wrap:wrap;gap:8px}
+  .seg input{position:absolute;opacity:0;pointer-events:none}
+  .seg label{padding:.55em 1em;border:1.5px solid var(--line);border-radius:999px;cursor:pointer;background:#fff;font-size:.95rem}
+  .seg input:checked+label{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .check{display:flex;gap:10px;align-items:flex-start;margin:18px 0;font-size:.92rem}
+  .check input{width:20px;height:20px;margin-top:2px;accent-color:var(--accent);flex:none}
+  .selfie{position:relative;width:210px;height:210px;margin:6px auto 12px;border-radius:50%;overflow:hidden;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:var(--shadow)}
+  .selfie video,.selfie img{width:100%;height:100%;object-fit:cover}
+  .selfie video{transform:scaleX(-1)}
+  .selfie .ph{font-size:3.2rem;opacity:.5}
+  .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .err{color:#B3261E;font-size:.9rem;min-height:1.2em;margin-top:10px}
+  .topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
+  .pill{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:.3em .8em;font-size:.82rem;font-weight:600;white-space:nowrap}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
+  .person{background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
+  .person img{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:var(--accent-soft)}
+  .person .body{padding:10px 10px 12px;display:flex;flex-direction:column;gap:8px;flex:1}
+  .person .name{font-weight:700;font-size:1.02rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .person .btn{width:100%;margin-top:auto}
+  .person.matched{border-color:var(--ok)}
+  .empty{text-align:center;padding:34px 16px;color:var(--soft)}
+  .empty .big{font-size:2.6rem}
+  .tabs{position:fixed;left:0;right:0;bottom:0;background:rgba(251,246,239,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);display:flex;justify-content:center;padding:8px 8px calc(8px + env(safe-area-inset-bottom));z-index:5}
+  .tabs .in{display:flex;max-width:560px;width:100%}
+  .tabs button{flex:1;border:0;background:none;font:inherit;font-size:.82rem;color:var(--soft);padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;position:relative}
+  .tabs button .ic{font-size:1.35rem}
+  .tabs button.on{color:var(--accent);font-weight:700}
+  .tabs .badge{position:absolute;top:0;left:calc(50% + 8px);background:var(--accent);color:#fff;border-radius:999px;font-size:.7rem;padding:1px 6px;font-weight:700}
+  .mrow{display:flex;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+  .mrow:last-child{border-bottom:0}
+  .mrow img{width:64px;height:64px;border-radius:50%;object-fit:cover;flex:none;background:var(--accent-soft)}
+  .hint{background:var(--ok-soft);color:var(--ok);border-radius:12px;padding:.5em .8em;font-size:.92rem;margin-top:4px}
+  .overlay{position:fixed;inset:0;background:rgba(43,35,32,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20;animation:fade .2s}
+  .modal{background:var(--bg);border-radius:24px;padding:24px 20px;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:pop .25s}
+  .pair{display:flex;justify-content:center;margin:10px 0 14px}
+  .pair img{width:104px;height:104px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:var(--shadow)}
+  .pair img+img{margin-left:-18px}
+  @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+  @keyframes fade{from{opacity:0}}
+  #toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:.7em 1.1em;border-radius:14px;font-size:.92rem;max-width:90vw;text-align:center;opacity:0;pointer-events:none;transition:opacity .25s;z-index:30}
+  #toast.on{opacity:1}
+  .demo{background:#FFF3C9;color:#6B5200;border-radius:12px;padding:.55em .9em;font-size:.84rem;margin-bottom:12px;text-align:center}
+  .spin{width:34px;height:34px;border:3px solid var(--accent-soft);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite;margin:80px auto}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app"><div class="spin"></div></div>
+<div id="toast"></div>
+
+<script type="module">
+/* ══════════════════════════════════════════════════════════════
+   Guiño guiño — web de invitados
+   Flujo: QR → ficha con selfie → radar → guiños → match
+   ══════════════════════════════════════════════════════════════ */
+
+const CFG = window.GUINO || {};
+const APP_NAME = CFG.appName || "Guiño guiño";
+const MAX_SIGNALS = CFG.maxSignals || 3;
+const params = new URLSearchParams(location.search);
+const DEMO = !CFG.firebaseConfig?.apiKey || params.has("demo");
+document.title = APP_NAME;
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const safeImg = (u) => (typeof u === "string" && u.startsWith("data:image/")) ? esc(u) : "";
+
+/* ─────────────── Estado ─────────────── */
+const S = {
+  api: null, eventId: null, event: null, uid: null,
+  me: null, profiles: [], sentTo: new Set(), matches: [],
+  view: "loading", tab: "radar", editing: false,
+  selfie: null, stream: null, errorMsg: "", watching: false, seenKey: ""
+};
+
+/* ══════════════ BACKEND: Firebase ══════════════ */
+async function makeFirebaseApi(cfg) {
+  const V = "10.12.2";
+  const [appM, authM, fs] = await Promise.all([
+    import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
+    import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`),
+    import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`)
+  ]);
+  const app = appM.initializeApp(cfg);
+  const auth = authM.getAuth(app);
+  const db = fs.getFirestore(app);
+  const { doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, query, where, getDocs, serverTimestamp } = fs;
+  const col = (eid, name) => collection(db, "events", eid, name);
+
+  return {
+    async signIn() {
+      const user = await new Promise(res => { const un = authM.onAuthStateChanged(auth, u => { un(); res(u); }); });
+      if (user) return user.uid;
+      return (await authM.signInAnonymously(auth)).user.uid;
+    },
+    async getEvent(eid) {
+      const snap = await getDoc(doc(db, "events", eid));
+      if (!snap.exists()) return null;
+      const d = snap.data();
+      return { name: d.name, active: d.active !== false, endsAt: d.endsAt?.toMillis?.() ?? 0 };
+    },
+    async getMyProfile(eid, uid) {
+      try { const s = await getDoc(doc(db, "events", eid, "profiles", uid)); return s.exists() ? { id: uid, ...s.data() } : null; }
+      catch { return null; }
+    },
+    async saveProfile(eid, uid, data) {
+      await setDoc(doc(db, "events", eid, "profiles", uid), { ...data, updatedAt: serverTimestamp() });
+    },
+    async deleteMe(eid, uid) {
+      const mine = await getDocs(query(col(eid, "signals"), where("from", "==", uid)));
+      await Promise.all(mine.docs.map(d => deleteDoc(d.ref)));
+      await deleteDoc(doc(db, "events", eid, "profiles", uid));
+    },
+    watchProfiles(eid, cb, onErr) {
+      return onSnapshot(col(eid, "profiles"), s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))), onErr);
+    },
+    watchMySignals(eid, uid, cb, onErr) {
+      return onSnapshot(query(col(eid, "signals"), where("from", "==", uid)), s => cb(s.docs.map(d => d.data().to)), onErr);
+    },
+    watchMatches(eid, uid, cb, onErr) {
+      return onSnapshot(query(col(eid, "matches"), where("members", "array-contains", uid)),
+        s => cb(s.docs.map(d => ({ id: d.id, members: d.data().members }))), onErr);
+    },
+    async sendSignal(eid, uid, to) {
+      await setDoc(doc(db, "events", eid, "signals", `${uid}_${to}`), { from: uid, to, createdAt: serverTimestamp() });
+      // Las reglas solo te dejan ver el guiño de vuelta si tú ya has mandado la tuya.
+      const back = await getDoc(doc(db, "events", eid, "signals", `${to}_${uid}`));
+      if (!back.exists()) return false;
+      const members = [uid, to].sort();
+      try { await setDoc(doc(db, "events", eid, "matches", members.join("_")), { members, createdAt: serverTimestamp() }); }
+      catch { /* la otra persona ya lo creó: da igual */ }
+      return true;
+    }
+  };
+}
+
+/* ══════════════ BACKEND: Demo (sin Firebase) ══════════════ */
+function avatar(name, bg) {
+  const ini = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='${bg}'/><circle cx='50' cy='40' r='18' fill='rgba(255,255,255,.35)'/><rect x='22' y='62' width='56' height='40' rx='28' fill='rgba(255,255,255,.35)'/><text x='50' y='95' font-family='Georgia' font-size='15' fill='#fff' text-anchor='middle'>${ini}</text></svg>`;
+  return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+}
+function makeDemoApi() {
+  const uid = "yo";
+  const raw = [
+    ["Lucía", "mujer", "hombres", "Vestido verde, mesa 4", true, "#C9806B"],
+    ["Marta", "mujer", "todos", "Pelo rizado, cerca de la barra", false, "#8C6FA8"],
+    ["Carmen", "mujer", "hombres", "Chaqueta roja, pista de baile", true, "#B5654C"],
+    ["Elena", "mujer", "mujeres", "Gafas redondas, mesa 9", true, "#6F8FA8"],
+    ["Paula", "mujer", "todos", "Mono negro, junto al photocall", false, "#A88F6F"],
+    ["Javi", "hombre", "mujeres", "Corbata amarilla, mesa 7", true, "#5E8C77"],
+    ["Rubén", "hombre", "todos", "Barba, camisa blanca, terraza", false, "#7C7A9E"],
+    ["Dani", "hombre", "hombres", "Pajarita azul, en la barra", true, "#9E7A7C"],
+    ["Sergio", "hombre", "mujeres", "Traje gris, mesa 2", false, "#6B8E9E"],
+    ["Alex", "otro", "todos", "Chaleco de flores, cerca del DJ", true, "#A06F95"]
+  ];
+  const fakes = raw.map(([name, gender, interest, hint, likesMe, c], i) =>
+    ({ id: "f" + i, name, gender, interest, hint, selfie: avatar(name, c), likesMe }));
+  let mine = null; const sent = new Set(); let matches = [];
+  const L = { p: [], s: [], m: [] };
+  const all = () => (mine ? [mine, ...fakes] : [...fakes]);
+  const emit = () => { L.p.forEach(f => f(all())); L.s.forEach(f => f([...sent])); L.m.forEach(f => f([...matches])); };
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  return {
+    demo: true,
+    async signIn() { return uid; },
+    async getEvent() { return { name: "Boda de Ana y Luis (demo)", active: true, endsAt: Date.now() + 6 * 3600e3 }; },
+    async getMyProfile() { return mine; },
+    async saveProfile(e, u, d) { await wait(300); mine = { id: uid, ...d }; emit(); },
+    async deleteMe() { mine = null; sent.clear(); matches = []; emit(); },
+    watchProfiles(e, cb) { L.p.push(cb); cb(all()); return () => {}; },
+    watchMySignals(e, u, cb) { L.s.push(cb); cb([...sent]); return () => {}; },
+    watchMatches(e, u, cb) { L.m.push(cb); cb([...matches]); return () => {}; },
+    async sendSignal(e, u, to) {
+      await wait(350); sent.add(to);
+      const f = fakes.find(x => x.id === to);
+      if (f?.likesMe) { matches.push({ id: [u, to].sort().join("_"), members: [u, to] }); }
+      emit(); return !!f?.likesMe;
+    }
+  };
+}
+
+/* ─────────────── Lógica de compatibilidad ─────────────── */
+const wants = (a, b) => a.interest === "todos" || (a.interest === "mujeres" && b.gender === "mujer") || (a.interest === "hombres" && b.gender === "hombre");
+const compatible = (a, b) => wants(a, b) && wants(b, a);
+const otherOf = (m) => m.members.find(x => x !== S.uid);
+const profileById = (id) => S.profiles.find(p => p.id === id);
+const matchedWith = (id) => S.matches.some(m => otherOf(m) === id);
+const signalsLeft = () => Math.max(0, MAX_SIGNALS - S.sentTo.size);
+const ended = () => !S.event || !S.event.active || S.event.endsAt < Date.now();
+
+/* ─────────────── Utilidades UI ─────────────── */
+let toastT;
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 3200); }
+function ask(html, okLabel = "Sí", cancelLabel = "Cancelar") {
+  return new Promise(res => {
+    const o = document.createElement("div"); o.className = "overlay";
+    o.innerHTML = `<div class="modal"><div>${html}</div><div class="row" style="margin-top:18px"><button class="btn ghost" data-r="0">${esc(cancelLabel)}</button><button class="btn" data-r="1">${esc(okLabel)}</button></div></div>`;
+    o.addEventListener("click", e => { const b = e.target.closest("[data-r]"); if (b || e.target === o) { o.remove(); res(b?.dataset.r === "1"); } });
+    document.body.appendChild(o);
+  });
+}
+function seenSet() { try { return new Set(JSON.parse(localStorage.getItem(S.seenKey) || "[]")); } catch { return new Set(); } }
+function markSeen(id) { try { const s = seenSet(); s.add(id); localStorage.setItem(S.seenKey, JSON.stringify([...s])); } catch {} }
+
+/* ─────────────── Arranque ─────────────── */
+async function boot() {
+  try {
+    S.eventId = params.get("e") || (DEMO ? "demo" : null);
+    if (!S.eventId) return showError("Falta el código del evento", "Escanea el QR que hay en el evento para entrar.");
+    S.seenKey = `guino-seen-${S.eventId}`;
+    S.api = DEMO ? makeDemoApi() : await makeFirebaseApi(CFG.firebaseConfig);
+    S.uid = await S.api.signIn();
+    S.event = await S.api.getEvent(S.eventId);
+    if (!S.event) return showError("Este evento no existe", "Revisa que has escaneado el QR correcto.");
+    if (ended()) return showEnded();
+    S.me = await S.api.getMyProfile(S.eventId, S.uid);
+    if (S.me) startMain(); else { S.view = "welcome"; render(); }
+  } catch (e) {
+    console.error(e);
+    showError("No se ha podido conectar", "Comprueba tu conexión y vuelve a intentarlo.");
+  }
+}
+function showError(title, text) { S.view = "error"; S.errorMsg = { title, text }; render(); }
+function showEnded() { stopCam(); S.view = "ended"; render(); }
+
+function startMain() {
+  S.view = "main";
+  if (!S.watching) {
+    S.watching = true;
+    const onErr = (e) => { console.error(e); if (String(e?.code).includes("permission")) showEnded(); };
+    S.api.watchProfiles(S.eventId, list => { S.profiles = list; if (S.view === "main") render(); checkNewMatches(); }, onErr);
+    S.api.watchMySignals(S.eventId, S.uid, tos => { S.sentTo = new Set(tos); if (S.view === "main") render(); }, onErr);
+    S.api.watchMatches(S.eventId, S.uid, ms => { S.matches = ms; if (S.view === "main") render(); checkNewMatches(); }, onErr);
+    setInterval(() => { if (S.view === "main" && ended()) showEnded(); }, 30000);
+  }
+  render();
+}
+
+function checkNewMatches() {
+  if ($(".overlay.match")) return;
+  const seen = seenSet();
+  const m = S.matches.find(x => !seen.has(x.id));
+  if (!m) return;
+  const p = profileById(otherOf(m));
+  if (!p) return; // aún no ha llegado su ficha; reintentará en la próxima actualización
+  markSeen(m.id);
+  showMatch(p);
+}
+
+function showMatch(p) {
+  navigator.vibrate?.([80, 60, 120]);
+  const o = document.createElement("div"); o.className = "overlay match";
+  o.innerHTML = `<div class="modal">
+    <div class="brand">Guiño guiño 😉</div>
+    <div class="pair"><img src="${safeImg(S.me?.selfie)}" alt=""><img src="${safeImg(p.selfie)}" alt=""></div>
+    <h2 class="serif">${esc(p.name)} te ha devuelto el guiño</h2>
+    <p class="muted">Búscale aquí:</p>
+    <div class="hint" style="font-size:1.05rem">📍 ${esc(p.hint)}</div>
+    <button class="btn block" style="margin-top:20px">¡Voy!</button></div>`;
+  o.querySelector("button").onclick = () => { o.remove(); checkNewMatches(); };
+  document.body.appendChild(o);
+}
+
+/* ─────────────── Vistas ─────────────── */
+function render() {
+  const app = $("#app");
+  const demo = DEMO ? `<div class="demo">Modo demo: la gente es de mentira y nada se guarda.</div>` : "";
+  if (S.view === "loading") { app.innerHTML = `<div class="spin"></div>`; return; }
+  if (S.view === "error") {
+    app.innerHTML = `<div class="empty"><div class="big">🔍</div><h2>${esc(S.errorMsg.title)}</h2><p>${esc(S.errorMsg.text)}</p></div>`; return;
+  }
+  if (S.view === "ended") {
+    app.innerHTML = `<div class="empty"><div class="big">🌙</div><h2>Se acabó la fiesta</h2><p>El radar de <b>${esc(S.event?.name || "este evento")}</b> está cerrado. Todas las fichas se borran al terminar.</p><p>Si alguien te ha caído bien… ya sabes lo que hay que hacer.</p></div>`;
+    $(".tabs")?.remove(); return;
+  }
+  if (S.view === "welcome") return renderWelcome(app, demo);
+  if (S.view === "form") return renderForm(app, demo);
+  if (S.view === "main") return renderMain(app, demo);
+}
+
+function renderWelcome(app, demo) {
+  app.innerHTML = `${demo}
+    <div class="brand">${esc(APP_NAME)}</div>
+    <h1>¿Estás soltero o soltera?</h1>
+    <p class="muted">En <b>${esc(S.event.name)}</b> hay más gente como tú. Descubre si alguien de aquí quiere conocerte, sin vergüenzas: nadie sabe que le has guiñado salvo que te guiñe también.</p>
+    <ul class="steps">
+      <li><b class="n">1</b><div>Hazte un selfie y di cómo encontrarte (ropa, mesa…).</div></li>
+      <li><b class="n">2</b><div>Mira quién está en el radar y manda hasta <b>${MAX_SIGNALS} guiños</b>.</div></li>
+      <li><b class="n">3</b><div>Si es mutuo, os avisamos y os decimos dónde está cada uno. El resto, en persona.</div></li>
+    </ul>
+    <p class="small muted">🔒 Todo se borra cuando termina el evento. Solo para mayores de 18.</p>
+    <button class="btn block" id="go">Entrar</button>`;
+  $("#go").onclick = () => { S.editing = false; S.selfie = null; S.view = "form"; render(); };
+}
+
+function renderForm(app, demo) {
+  const me = S.editing ? S.me : null;
+  if (S.editing && !S.selfie) S.selfie = me.selfie;
+  const seg = (name, opts, val) => `<div class="seg">${opts.map(([v, l]) =>
+    `<input type="radio" name="${name}" id="${name}-${v}" value="${v}" ${val === v ? "checked" : ""}><label for="${name}-${v}">${l}</label>`).join("")}</div>`;
+  app.innerHTML = `${demo}
+    <div class="brand">${esc(S.event.name)}</div>
+    <h2>${S.editing ? "Editar tu ficha" : "Tu ficha"}</h2>
+    <div class="selfie" id="sbox">${S.selfie ? `<img src="${safeImg(S.selfie)}" alt="Tu selfie">` : `<span class="ph">🤳</span>`}</div>
+    <div class="row" id="camrow">
+      <button class="btn ${S.selfie ? "ghost" : ""} small" id="cam">${S.selfie ? "Repetir selfie" : "Hacer selfie"}</button>
+    </div>
+    <input type="file" id="file" accept="image/*" capture="user" hidden>
+    <p class="small muted center">Un selfie hecho ahora, para que te reconozcan.</p>
+
+    <label class="f" for="name">Tu nombre</label>
+    <input type="text" id="name" maxlength="24" placeholder="Como quieras que te llamen" value="${esc(me?.name || "")}">
+
+    <label class="f">Soy</label>
+    ${seg("gender", [["mujer", "Mujer"], ["hombre", "Hombre"], ["otro", "Otro / prefiero no decir"]], me?.gender)}
+
+    <label class="f">Me interesan</label>
+    ${seg("interest", [["mujeres", "Mujeres"], ["hombres", "Hombres"], ["todos", "Todo el mundo"]], me?.interest)}
+
+    <label class="f" for="hint">¿Cómo te encuentran?</label>
+    <input type="text" id="hint" maxlength="80" placeholder="Ej.: vestido azul, mesa 7" value="${esc(me?.hint || "")}">
+    <p class="small muted">Solo lo verá quien haga match contigo.</p>
+
+    ${S.editing ? "" : `<label class="check"><input type="checkbox" id="adult"><span>Tengo 18 años o más y acepto aparecer en el radar de este evento. Mi ficha se borrará al terminar.</span></label>`}
+    <div class="err" id="err"></div>
+    <button class="btn block" id="save">${S.editing ? "Guardar cambios" : "Entrar al radar"}</button>
+    ${S.editing ? `<button class="btn ghost block" id="cancel" style="margin-top:10px">Cancelar</button>` : ""}`;
+
+  $("#cam").onclick = startCam;
+  $("#file").onchange = (e) => { const f = e.target.files?.[0]; if (f) fileToSelfie(f); };
+  $("#save").onclick = saveForm;
+  if (S.editing) $("#cancel").onclick = () => { stopCam(); S.selfie = null; S.editing = false; S.view = "main"; render(); };
+}
+
+/* ── Cámara ── */
+async function startCam() {
+  stopCam();
+  if (!navigator.mediaDevices?.getUserMedia) return $("#file").click();
+  try {
+    S.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 } }, audio: false });
+    $("#sbox").innerHTML = `<video id="vid" playsinline muted autoplay></video>`;
+    const v = $("#vid"); v.srcObject = S.stream; await v.play().catch(() => {});
+    $("#camrow").innerHTML = `<button class="btn ghost small" id="cancelcam">Cancelar</button><button class="btn small" id="snap">📸 Hacer foto</button>`;
+    $("#snap").onclick = () => { S.selfie = squareJpeg(v, v.videoWidth, v.videoHeight, true); stopCam(); refreshSelfie(); };
+    $("#cancelcam").onclick = () => { stopCam(); refreshSelfie(); };
+  } catch (e) {
+    console.warn("Cámara no disponible, uso selector de archivo", e);
+    $("#file").click();
+  }
+}
+function stopCam() { S.stream?.getTracks().forEach(t => t.stop()); S.stream = null; }
+function refreshSelfie() {
+  $("#sbox").innerHTML = S.selfie ? `<img src="${safeImg(S.selfie)}" alt="Tu selfie">` : `<span class="ph">🤳</span>`;
+  $("#camrow").innerHTML = `<button class="btn ${S.selfie ? "ghost" : ""} small" id="cam">${S.selfie ? "Repetir selfie" : "Hacer selfie"}</button>`;
+  $("#cam").onclick = startCam;
+}
+function squareJpeg(src, w, h, mirror) {
+  const size = 360, side = Math.min(w, h);
+  const c = document.createElement("canvas"); c.width = c.height = size;
+  const ctx = c.getContext("2d");
+  if (mirror) { ctx.translate(size, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(src, (w - side) / 2, (h - side) / 2, side, side, 0, 0, size, size);
+  return c.toDataURL("image/jpeg", 0.72);
+}
+function fileToSelfie(file) {
+  const img = new Image();
+  img.onload = () => { S.selfie = squareJpeg(img, img.naturalWidth, img.naturalHeight, false); URL.revokeObjectURL(img.src); refreshSelfie(); };
+  img.src = URL.createObjectURL(file);
+}
+
+async function saveForm() {
+  const err = $("#err"); err.textContent = "";
+  const name = $("#name").value.trim();
+  const hint = $("#hint").value.trim();
+  const gender = $("input[name=gender]:checked")?.value;
+  const interest = $("input[name=interest]:checked")?.value;
+  if (!S.selfie) return err.textContent = "Falta tu selfie.";
+  if (!name) return err.textContent = "Pon tu nombre.";
+  if (!gender || !interest) return err.textContent = "Dinos qué eres y qué te interesa.";
+  if (!hint) return err.textContent = "Di cómo encontrarte (ropa, mesa…).";
+  if (!S.editing && !$("#adult").checked) return err.textContent = "Tienes que confirmar que eres mayor de edad.";
+  const btn = $("#save"); btn.disabled = true; btn.textContent = "Guardando…";
+  const data = { name, gender, interest, hint, selfie: S.selfie };
+  try {
+    await S.api.saveProfile(S.eventId, S.uid, data);
+    stopCam();
+    S.me = { id: S.uid, ...data }; S.selfie = null;
+    const wasEditing = S.editing; S.editing = false;
+    startMain();
+    if (wasEditing) toast("Ficha actualizada");
+  } catch (e) {
+    console.error(e);
+    btn.disabled = false; btn.textContent = S.editing ? "Guardar cambios" : "Entrar al radar";
+    err.textContent = String(e?.code).includes("permission") ? "El radar de este evento está cerrado." : "No se ha podido guardar. Revisa tu conexión.";
+  }
+}
+
+/* ── Pantalla principal ── */
+function renderMain(app, demo) {
+  const me = S.me;
+  const visible = S.profiles.filter(p => p.id !== S.uid && compatible(me, p)).sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const nMatches = S.matches.length;
+  let body = "";
+
+  if (S.tab === "radar") {
+    body = `<p class="muted small">${visible.length === 1 ? "1 persona" : visible.length + " personas"} en tu radar · Los guiños son secretos hasta que sean mutuos.</p>`;
+    body += visible.length ? `<div class="grid">${visible.map(p => {
+      const matched = matchedWith(p.id), sent = S.sentTo.has(p.id);
+      const btn = matched ? `<button class="btn okb small" data-match="${esc(p.id)}">💛 Match</button>`
+        : sent ? `<button class="btn soft small" disabled>Guiño enviado</button>`
+        : `<button class="btn small" data-sig="${esc(p.id)}" ${signalsLeft() ? "" : "disabled"}>${signalsLeft() ? "😉 Guiñar" : "Sin guiños"}</button>`;
+      return `<div class="person ${matched ? "matched" : ""}"><img src="${safeImg(p.selfie)}" alt="" loading="lazy"><div class="body"><div class="name">${esc(p.name)}</div>${btn}</div></div>`;
+    }).join("")}</div>`
+      : `<div class="empty"><div class="big">📡</div><p>Todavía no hay nadie en tu radar.<br>Esto se va llenando a medida que la gente escanea el QR.</p></div>`;
+  }
+
+  if (S.tab === "matches") {
+    body = `<h2>Tus matches</h2>`;
+    body += nMatches ? `<div class="card">${S.matches.map(m => {
+      const p = profileById(otherOf(m));
+      return p ? `<div class="mrow"><img src="${safeImg(p.selfie)}" alt=""><div><b>${esc(p.name)}</b><div class="hint">📍 ${esc(p.hint)}</div></div></div>`
+        : `<div class="mrow"><div class="muted">Esta persona ha salido del radar.</div></div>`;
+    }).join("")}</div>`
+      : `<div class="empty"><div class="big">💌</div><p>Aún no hay matches.<br>Cuando alguien a quien has guiñado te devuelva el guiño, aparecerá aquí.</p></div>`;
+  }
+
+  if (S.tab === "me") {
+    const lbl = { mujer: "Mujer", hombre: "Hombre", otro: "Otro", mujeres: "mujeres", hombres: "hombres", todos: "todo el mundo" };
+    body = `<h2>Tu ficha</h2>
+      <div class="card center">
+        <img src="${safeImg(me.selfie)}" alt="" style="width:120px;height:120px;border-radius:50%;object-fit:cover">
+        <h2 style="margin:.4em 0 .1em">${esc(me.name)}</h2>
+        <p class="muted small">${lbl[me.gender] || ""} · le interesan ${lbl[me.interest] || ""}</p>
+        <div class="hint">📍 ${esc(me.hint)}</div>
+        <p class="small muted" style="margin-top:12px">Guiños usados: ${S.sentTo.size} de ${MAX_SIGNALS}</p>
+      </div>
+      <button class="btn ghost block" id="edit">Editar ficha</button>
+      <button class="btn ghost block" id="del" style="margin-top:10px;color:#B3261E">Salir y borrar mi ficha</button>
+      <p class="small muted center" style="margin-top:16px">Tu ficha y tus guiños se borran al terminar el evento.</p>`;
+  }
+
+  app.innerHTML = `${demo}
+    <div class="topbar"><div><div class="brand">${esc(APP_NAME)}</div><div class="serif" style="font-size:1.15rem">${esc(S.event.name)}</div></div>
+    <span class="pill">😉 ${signalsLeft()} ${signalsLeft() === 1 ? "guiño" : "guiños"}</span></div>
+    ${body}`;
+
+  if (!$(".tabs")) {
+    const t = document.createElement("nav"); t.className = "tabs";
+    t.innerHTML = `<div class="in"></div>`; document.body.appendChild(t);
+  }
+  $(".tabs .in").innerHTML = [["radar", "📡", "Radar"], ["matches", "💛", "Matches"], ["me", "🙂", "Mi ficha"]].map(([k, ic, l]) =>
+    `<button class="${S.tab === k ? "on" : ""}" data-tab="${k}"><span class="ic">${ic}</span>${l}${k === "matches" && nMatches ? `<span class="badge">${nMatches}</span>` : ""}</button>`).join("");
+  $(".tabs .in").onclick = (e) => { const b = e.target.closest("[data-tab]"); if (b) { S.tab = b.dataset.tab; render(); window.scrollTo(0, 0); } };
+
+  app.querySelectorAll("[data-sig]").forEach(b => b.onclick = () => sendSignal(b.dataset.sig, b));
+  app.querySelectorAll("[data-match]").forEach(b => b.onclick = () => { const p = profileById(b.dataset.match); if (p) showMatch(p); });
+  $("#edit") && ($("#edit").onclick = () => { S.editing = true; S.selfie = null; S.view = "form"; $(".tabs")?.remove(); render(); });
+  $("#del") && ($("#del").onclick = deleteMe);
+}
+
+async function sendSignal(id, btn) {
+  const p = profileById(id); if (!p || S.sentTo.has(id) || !signalsLeft()) return;
+  const ok = await ask(`<div class="pair"><img src="${safeImg(p.selfie)}" alt=""></div><h2 class="serif">¿Guiñarle a ${esc(p.name)}?</h2><p class="muted">Usarás 1 de tus ${signalsLeft()} guiños. ${esc(p.name)} solo lo sabrá si también te guiña.</p>`, "Mandar guiño");
+  if (!ok) return;
+  btn.disabled = true; btn.textContent = "Enviando…";
+  try {
+    const matched = await S.api.sendSignal(S.eventId, S.uid, id);
+    if (!matched) toast(`Guiño enviado. Si ${p.name} te lo devuelve, os avisamos.`);
+  } catch (e) {
+    console.error(e); btn.disabled = false; btn.textContent = "😉 Guiñar";
+    toast("No se ha podido enviar. Revisa tu conexión.");
+  }
+}
+
+async function deleteMe() {
+  const ok = await ask(`<h2 class="serif">¿Salir del radar?</h2><p class="muted">Se borrarán tu ficha y tus guiños. Podrás volver a entrar escaneando el QR.</p>`, "Borrar y salir");
+  if (!ok) return;
+  try {
+    await S.api.deleteMe(S.eventId, S.uid);
+    S.me = null; S.tab = "radar"; S.view = "welcome"; $(".tabs")?.remove(); render();
+    toast("Tu ficha se ha borrado");
+  } catch (e) { console.error(e); toast("No se ha podido borrar. Inténtalo otra vez."); }
+}
+
+boot();
+</script>
+</body>
+</html>
