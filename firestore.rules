@@ -23,6 +23,16 @@ service cloud.firestore {
     function matchPath(eid, mid)  { return /databases/$(database)/documents/events/$(eid)/matches/$(mid); }
     // ¿Existe un match entre a y b? (el id del match es "<uid1>_<uid2>" en orden alfabético)
     function isMatched(eid, a, b) { return exists(matchPath(eid, a + '_' + b)) || exists(matchPath(eid, b + '_' + a)); }
+    // Match de grupo: el evento lo permite y la persona lo ha activado (dato privado en /optins).
+    function groupsAllowed(eid) { let e = get(eventPath(eid)).data; return e.get('kind', 'boda') == 'fiesta' || e.get('groups', false) == true; }
+    function optedIn(eid, u) { return get(/databases/$(database)/documents/events/$(eid)/optins/$(u)).data.get('group', false) == true; }
+    // ¿Puedo ver si dos de mis matches (m[0] y m[1]) han hecho match entre ellos?
+    // Solo si tengo match con los dos y los tres hemos activado el match de grupo.
+    function groupView(eid, m) {
+      return m.size() == 2 && groupsAllowed(eid)
+        && isMatched(eid, request.auth.uid, m[0]) && isMatched(eid, request.auth.uid, m[1])
+        && optedIn(eid, request.auth.uid) && optedIn(eid, m[0]) && optedIn(eid, m[1]);
+    }
 
     match /events/{eid} {
       // Cualquiera con el enlace puede leer el nombre y la hora de fin;
@@ -58,8 +68,7 @@ service cloud.firestore {
           && sid == request.auth.uid + '_' + request.resource.data.to
           && exists(/databases/$(database)/documents/events/$(eid)/profiles/$(request.auth.uid));
         allow get: if isAdmin() || (signedIn() && (
-             resource == null
-          || resource.data.from == request.auth.uid
+             resource.data.from == request.auth.uid
           || (resource.data.to == request.auth.uid
               && exists(signalPath(eid, request.auth.uid + '_' + resource.data.from)))));
         allow list: if isAdmin() || (signedIn() && resource.data.from == request.auth.uid);
@@ -76,7 +85,9 @@ service cloud.firestore {
           && mid == request.resource.data.members[0] + '_' + request.resource.data.members[1]
           && exists(signalPath(eid, request.resource.data.members[0] + '_' + request.resource.data.members[1]))
           && exists(signalPath(eid, request.resource.data.members[1] + '_' + request.resource.data.members[0]));
-        allow read: if isAdmin() || (signedIn() && request.auth.uid in resource.data.members);
+        allow get: if isAdmin() || (signedIn()
+          && (request.auth.uid in mid.split('_') || groupView(eid, mid.split('_'))));
+        allow list: if isAdmin() || (signedIn() && request.auth.uid in resource.data.members);
         allow delete: if isAdmin();
       }
 
@@ -93,11 +104,20 @@ service cloud.firestore {
           && request.resource.data.ig.matches('^[a-z0-9._]{1,30}$')
           && isMatched(eid, request.auth.uid, request.resource.data.to)
           && (resource == null || resource.data.from == request.auth.uid);
-        allow get: if isAdmin() || (signedIn() && (resource == null
-          || resource.data.from == request.auth.uid || resource.data.to == request.auth.uid));
+        allow get: if isAdmin() || (signedIn() && request.auth.uid in sid.split('_'));
         allow list: if isAdmin() || (signedIn()
           && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid));
         allow delete: if isAdmin() || (signedIn() && resource.data.from == request.auth.uid);
+      }
+
+      // ── Match de grupo (casilla voluntaria) ─────────────────
+      // Privado: solo lo lee su dueño. Las reglas lo consultan por dentro.
+      match /optins/{uid} {
+        allow get: if signedIn() && request.auth.uid == uid;
+        allow create, update: if signedIn() && request.auth.uid == uid && eventOpen(eid)
+          && request.resource.data.keys().hasOnly(['group', 'updatedAt'])
+          && request.resource.data.group is bool;
+        allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
       }
 
       // ── Mensaje para los matches ────────────────────────────
