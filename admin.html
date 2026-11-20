@@ -232,7 +232,7 @@ async function wipe(id) {
     profs.docs.slice(i, i + 400).forEach(d => batch.delete(doc(db, "events", id, "contacts", d.id)));
     await batch.commit();
   }
-  for (const name of ["profiles", "signals", "matches"]) {
+  for (const name of ["profiles", "signals", "matches", "shares"]) {
     const snap = await getDocs(collection(db, "events", id, name));
     for (let i = 0; i < snap.docs.length; i += 400) {
       const batch = writeBatch(db);
