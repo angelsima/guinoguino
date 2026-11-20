@@ -25,5 +25,5 @@ window.GUINO = {
   appName: "Guiño guiño",
 
   // Guiños que puede mandar cada persona por evento
-  maxSignals: 3
+  maxSignals: 5
 };
