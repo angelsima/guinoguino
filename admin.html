@@ -37,7 +37,8 @@
 <main id="m"><p class="muted">Cargando…</p></main>
 
 <script type="module">
-const CFG = window.GUINO || {};
+if (!window.GUINO) { document.getElementById("m").innerHTML = '<h1>Error en config.js</h1><div class="warn">El archivo <code>config.js</code> no se ha podido leer: tiene un fallo de escritura. Revisa que pone <code>firebaseConfig: {</code> (con dos puntos), que no falta ninguna coma y que las llaves están bien cerradas.</div>'; throw new Error("config.js no se ha cargado"); }
+const CFG = window.GUINO;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const M = $("#m");
@@ -182,6 +183,13 @@ async function countStats(id) {
 }
 
 async function wipe(id) {
+  // Los mensajes privados no se pueden listar desde aquí: se borran por el id de cada ficha.
+  const profs = await getDocs(collection(db, "events", id, "profiles"));
+  for (let i = 0; i < profs.docs.length; i += 400) {
+    const batch = writeBatch(db);
+    profs.docs.slice(i, i + 400).forEach(d => batch.delete(doc(db, "events", id, "contacts", d.id)));
+    await batch.commit();
+  }
   for (const name of ["profiles", "signals", "matches"]) {
     const snap = await getDocs(collection(db, "events", id, name));
     for (let i = 0; i < snap.docs.length; i += 400) {
