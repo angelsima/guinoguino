@@ -275,7 +275,7 @@ async function makeFirebaseApi(cfg) {
       const snap = await getDoc(doc(db, "events", eid));
       if (!snap.exists()) return null;
       const d = snap.data();
-      return normEvent({ name: d.name, active: d.active !== false, endsAt: d.endsAt?.toMillis?.() ?? 0, theme: d.theme, kind: d.kind, sides: d.sides });
+      return normEvent({ name: d.name, active: d.active !== false, endsAt: d.endsAt?.toMillis?.() ?? 0, theme: d.theme, kind: d.kind, sides: d.sides, groups: d.groups });
     },
     async getMyProfile(eid, uid) {
       try {
