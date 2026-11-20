@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#FBF6EF">
-<title>Guiño guiño</title>
+<title>La Mesa 0</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E😉%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -226,13 +226,13 @@
 
 <script type="module">
 /* ══════════════════════════════════════════════════════════════
-   Guiño guiño — web de invitados
+   La Mesa 0 — web de invitados
    Flujo: QR → ficha con selfie → radar → guiños → match
    ══════════════════════════════════════════════════════════════ */
 
 if (!window.GUINO) { document.getElementById("app").innerHTML = '<div class="empty"><div class="big">⚠️</div><h2>Error en config.js</h2><p>El archivo de configuración tiene un fallo de escritura (revisa dos puntos, comas y llaves).</p></div>'; throw new Error("config.js no se ha cargado"); }
 const CFG = window.GUINO;
-const APP_NAME = CFG.appName || "Guiño guiño";
+const APP_NAME = CFG.appName || "La Mesa 0";
 const MAX_SIGNALS = CFG.maxSignals || 3;
 const params = new URLSearchParams(location.search);
 const DEMO = !CFG.firebaseConfig?.apiKey || params.has("demo");
