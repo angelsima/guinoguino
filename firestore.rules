@@ -20,6 +20,9 @@ service cloud.firestore {
       return e.active == true && request.time < e.endsAt;
     }
     function signalPath(eid, sid) { return /databases/$(database)/documents/events/$(eid)/signals/$(sid); }
+    function matchPath(eid, mid)  { return /databases/$(database)/documents/events/$(eid)/matches/$(mid); }
+    // ¿Existe un match entre a y b? (el id del match es "<uid1>_<uid2>" en orden alfabético)
+    function isMatched(eid, a, b) { return exists(matchPath(eid, a + '_' + b)) || exists(matchPath(eid, b + '_' + a)); }
 
     match /events/{eid} {
       // Cualquiera con el enlace puede leer el nombre y la hora de fin;
@@ -31,9 +34,8 @@ service cloud.firestore {
       match /profiles/{uid} {
         allow read: if isAdmin() || (signedIn() && eventOpen(eid));
         allow create, update: if signedIn() && request.auth.uid == uid && eventOpen(eid)
-          && request.resource.data.keys().hasOnly(['name', 'gender', 'interest', 'hint', 'selfie', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['name', 'gender', 'interest', 'selfie', 'updatedAt'])
           && request.resource.data.name is string     && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 24
-          && request.resource.data.hint is string     && request.resource.data.hint.size() > 0 && request.resource.data.hint.size() <= 80
           && request.resource.data.gender in ['mujer', 'hombre', 'otro']
           && request.resource.data.interest in ['mujeres', 'hombres', 'todos']
           && request.resource.data.selfie is string   && request.resource.data.selfie.size() < 150000
@@ -75,6 +77,19 @@ service cloud.firestore {
           && exists(signalPath(eid, request.resource.data.members[1] + '_' + request.resource.data.members[0]));
         allow read: if isAdmin() || (signedIn() && request.auth.uid in resource.data.members);
         allow delete: if isAdmin();
+      }
+
+      // ── Mensaje para los matches ────────────────────────────
+      // Privado: SOLO lo puede leer su dueño y las personas con las que
+      // tiene match. Ni siquiera el panel de administración lo lee
+      // (solo puede borrarlo).
+      match /contacts/{uid} {
+        allow read: if signedIn() && eventOpen(eid)
+          && (request.auth.uid == uid || isMatched(eid, request.auth.uid, uid));
+        allow create, update: if signedIn() && request.auth.uid == uid && eventOpen(eid)
+          && request.resource.data.keys().hasOnly(['message', 'updatedAt'])
+          && request.resource.data.message is string && request.resource.data.message.size() <= 400;
+        allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
       }
     }
   }
