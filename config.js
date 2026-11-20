@@ -22,7 +22,7 @@ window.GUINO = {
   },
 
   // Nombre que se ve en la web
-  appName: "Guiño guiño",
+appName: "La Mesa 0",
 
   // Guiños que puede mandar cada persona por evento
   maxSignals: 5
