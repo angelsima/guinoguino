@@ -34,12 +34,13 @@ service cloud.firestore {
       match /profiles/{uid} {
         allow read: if isAdmin() || (signedIn() && eventOpen(eid));
         allow create, update: if signedIn() && request.auth.uid == uid && eventOpen(eid)
-          && request.resource.data.keys().hasOnly(['name', 'gender', 'interest', 'selfie', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['name', 'gender', 'interest', 'selfie', 'side', 'updatedAt'])
           && request.resource.data.name is string     && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 24
           && request.resource.data.gender in ['mujer', 'hombre', 'otro']
           && request.resource.data.interest in ['mujeres', 'hombres', 'todos']
           && request.resource.data.selfie is string   && request.resource.data.selfie.size() < 150000
-          && request.resource.data.selfie.matches('^data:image/jpeg;base64,.*');
+          && request.resource.data.selfie.matches('^data:image/jpeg;base64,.*')
+          && (!('side' in request.resource.data) || request.resource.data.side in ['a', 'b', 'ambos']);
         allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
       }
 
