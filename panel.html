@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Guiño guiño · Vuestro evento</title>
+<meta name="theme-color" content="#F6F1E7">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E😉%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Great+Vibes&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="cartel.js"></script>
+<style>
+  :root{--bg:#F6F1E7;--card:#FFFDF8;--ink:#26342B;--soft:#6E786F;--line:#E4DAC8;--sage:#3E5C48;--sage-soft:#E3EBE3;--gold:#B39257;--gold-soft:#F3EAD8;--bad:#A3392F;--bad-soft:#F7E2DE}
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  main{max-width:640px;margin:0 auto;padding:22px 18px 70px}
+  .brand{font-family:"Great Vibes",cursive;font-size:2.4rem;color:var(--gold);line-height:1;text-align:center;margin-top:6px}
+  .sub{text-align:center;font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;color:var(--sage);font-size:1.15rem;margin:2px 0 18px}
+  h1,h2,h3{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;line-height:1.15}
+  h1{font-size:2.1rem;margin:.2em 0 .3em;text-align:center}
+  h2{font-size:1.6rem;margin:.1em 0 .4em}
+  h3{font-size:1.25rem;margin:1.1em 0 .3em}
+  p{margin:.5em 0}
+  a{color:var(--sage)}
+  .muted{color:var(--soft)} .small{font-size:.88rem}
+  .center{text-align:center}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin:16px 0}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4em;border:0;border-radius:999px;padding:.75em 1.3em;min-height:46px;font:inherit;font-weight:600;cursor:pointer;background:var(--sage);color:#fff;text-decoration:none}
+  .btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
+  .btn.gold{background:var(--gold)}
+  .btn.block{width:100%}
+  .btn[disabled]{opacity:.55;cursor:default}
+  .btn.sm{min-height:36px;padding:.4em .9em;font-size:.9rem}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{display:block;font-weight:600;margin:14px 0 5px}
+  input{font:inherit;padding:.7em .85em;border:1.5px solid var(--line);border-radius:12px;width:100%;background:#fff;color:var(--ink)}
+  input:focus{outline:none;border-color:var(--sage);box-shadow:0 0 0 3px var(--sage-soft)}
+  input[disabled]{background:#F2EEE6;color:var(--soft)}
+  .code-in{font:600 1.25rem/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;text-transform:uppercase;text-align:center}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:520px){.grid2{grid-template-columns:1fr}}
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+  .opts input{position:absolute;opacity:0;width:1px;height:1px}
+  .opts label{margin:0;display:block;border:2px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;background:#fff;height:100%}
+  .opts input:checked+label{border-color:var(--sage);box-shadow:0 0 0 3px var(--sage-soft)}
+  .opts input:focus-visible+label{outline:2px solid var(--gold)}
+  .opts small{display:block;font-weight:400;color:var(--soft);margin-top:3px;font-size:.84rem;line-height:1.35}
+  .sw{display:flex;gap:4px;margin-top:8px}.sw i{width:20px;height:20px;border-radius:50%;display:block;border:1px solid rgba(0,0,0,.12)}
+  .chk{display:flex;gap:10px;align-items:flex-start;font-weight:400;margin-top:16px;cursor:pointer}
+  .chk input{width:22px;height:22px;margin-top:2px;flex:none;accent-color:var(--sage)}
+  .note{background:var(--gold-soft);border-radius:14px;padding:12px 14px;font-size:.93rem}
+  .ok{background:var(--sage-soft);border-radius:14px;padding:12px 14px;font-size:.95rem}
+  .err{color:var(--bad);font-size:.9rem;min-height:1.2em;margin-top:8px}
+  .err.box{background:var(--bad-soft);border-radius:12px;padding:10px 12px}
+  .sep{display:flex;align-items:center;gap:10px;color:var(--soft);font-size:.85rem;margin:16px 0}.sep::before,.sep::after{content:"";flex:1;height:1px;background:var(--line)}
+  .pill{display:inline-block;border-radius:999px;padding:.2em .8em;font-size:.82rem;font-weight:600;white-space:nowrap}
+  .pill.soon{background:var(--gold-soft);color:#7A5E2A}.pill.on{background:var(--sage-soft);color:var(--sage)}.pill.off{background:#ECE8E0;color:#666}
+  .evrow{display:flex;justify-content:space-between;gap:10px;align-items:center;cursor:pointer}
+  .evrow:hover h2{text-decoration:underline}
+  .link{display:flex;gap:8px;align-items:center;background:#fff;border:1.5px dashed var(--line);border-radius:12px;padding:8px 8px 8px 12px}
+  .link code{flex:1;font-size:.85rem;word-break:break-all;color:var(--sage)}
+  .qr{margin-top:12px;padding:14px;background:#fff;border:1px solid var(--line);border-radius:14px;display:inline-block}
+  .qr canvas,.qr img{display:block}
+  .steps{padding-left:1.2em;margin:.4em 0}.steps li{margin:.35em 0}
+  .back{background:none;border:0;font:inherit;color:var(--sage);cursor:pointer;padding:0;margin-bottom:6px}
+  .demo-bar{background:#FFF3C9;color:#5C4700;border-radius:12px;padding:.6em .8em;font-size:.85rem;text-align:center;margin-bottom:10px}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,30px);opacity:0;background:var(--ink);color:#fff;padding:.7em 1.1em;border-radius:999px;font-size:.92rem;transition:.25s;pointer-events:none;max-width:92vw;text-align:center;z-index:9}
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+  .spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--sage);border-radius:50%;animation:sp 1s linear infinite;margin:60px auto}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  footer{text-align:center;margin-top:30px}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand" id="brand">Guiño guiño</div>
+  <div class="sub">Vuestro evento</div>
+  <div id="m"><div class="spin"></div></div>
+  <footer class="small muted"><a href="privacidad.html">Privacidad y condiciones</a></footer>
+</main>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+/* ══════════════════════════════════════════════════════════════
+   Panel de los novios
+   Entrar (email o Google) → canjear código → crear y editar el evento
+   → enlace, QR y cartel. Sin config.js funciona en modo demo.
+   ══════════════════════════════════════════════════════════════ */
+const M = document.getElementById("m");
+if (!window.GUINO) { M.innerHTML = '<div class="card"><h2>Error en config.js</h2><p>El archivo de configuración tiene un fallo de escritura (revisa dos puntos, comas y llaves).</p></div>'; throw new Error("config.js no se ha cargado"); }
+const CFG = window.GUINO;
+const APP = CFG.appName || "Guiño guiño";
+document.getElementById("brand").textContent = APP;
+document.title = `${APP} · Vuestro evento`;
+const params = new URLSearchParams(location.search);
+const DEMO = !CFG.firebaseConfig?.apiKey || params.has("demo");
+const HOURS = 36; // el radar abre a las 00:00 del día del evento y cierra 36 h después (12:00 del día siguiente)
+const { guestUrl, drawQR, printPoster } = window.GuinoCartel;
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const slug = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "evento";
+const rand = (n = 5) => Array.from(crypto.getRandomValues(new Uint8Array(n)), x => "abcdefghjkmnpqrstuvwxyz23456789"[x % 31]).join("");
+const normCode = s => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+const showCode = c => c.length === 10 ? c.slice(0, 5) + "-" + c.slice(5) : c;
+const pad = n => String(n).padStart(2, "0");
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const opensOf = date => { const [y, m, d] = date.split("-").map(Number); return new Date(y, m - 1, d, 0, 0, 0, 0).getTime(); };
+const fmtDay = ms => new Date(ms).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+const fmtFull = ms => `${fmtDay(ms).replace(",", "")} a las ${new Date(ms).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`;
+
+let toastT;
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 3400); }
+
+/* ══════════════ BACKEND: Firebase ══════════════ */
+async function makeFirebaseApi(cfg) {
+  const V = "10.12.2";
+  const [appM, authM, fs] = await Promise.all([
+    import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
+    import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`),
+    import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`)
+  ]);
+  const app = appM.initializeApp(cfg);
+  const auth = authM.getAuth(app);
+  auth.languageCode = "es";
+  const db = fs.getFirestore(app);
+  const { doc, getDoc, getDocs, collection, query, where, writeBatch, updateDoc, serverTimestamp, Timestamp, deleteField, getCountFromServer } = fs;
+  const toEv = d => { const x = d.data(); return { id: d.id, ...x, opensMs: x.opensAt?.toMillis?.() ?? 0, endsMs: x.endsAt?.toMillis?.() ?? 0 }; };
+  const continueUrl = () => location.origin + location.pathname + (params.get("code") ? `?code=${encodeURIComponent(params.get("code"))}` : "");
+  const me = () => auth.currentUser;
+
+  return {
+    demo: false,
+    pendingLink: () => authM.isSignInWithEmailLink(auth, location.href),
+    storedEmail: () => { try { return localStorage.getItem("guino-email") || ""; } catch { return ""; } },
+    async completeLink(email) {
+      await authM.signInWithEmailLink(auth, email, location.href);
+      try { localStorage.removeItem("guino-email"); } catch {}
+      history.replaceState(null, "", continueUrl());
+    },
+    onUser(cb) { authM.onAuthStateChanged(auth, u => cb(u && !u.isAnonymous ? { uid: u.uid, email: u.email || "" } : null)); },
+    async sendLink(email) {
+      await authM.sendSignInLinkToEmail(auth, email, { url: continueUrl(), handleCodeInApp: true });
+      try { localStorage.setItem("guino-email", email); } catch {}
+      return { instant: false };
+    },
+    google: () => authM.signInWithPopup(auth, new authM.GoogleAuthProvider()),
+    signOut: () => authM.signOut(auth),
+    async checkCode(code) {
+      try {
+        const s = await getDoc(doc(db, "codes", code));
+        if (!s.exists()) return { status: "invalid" };
+        const d = s.data();
+        if (!d.used) return { status: "free" };
+        return d.usedBy === me().uid ? { status: "mine", eventId: d.eventId } : { status: "invalid" };
+      } catch (e) { if (e.code === "permission-denied") return { status: "invalid" }; throw e; }
+    },
+    async redeem(code, f) {
+      const u = me();
+      for (let i = 0; i < 4; i++) {
+        const eid = `${slug(f.name)}-${rand()}`;
+        if ((await getDoc(doc(db, "events", eid))).exists()) continue; // id ocupado: probamos otro
+        const ev = { name: f.name, kind: f.kind, theme: f.theme, groups: f.groups, date: f.date,
+          opensAt: Timestamp.fromMillis(f.opensMs), endsAt: Timestamp.fromMillis(f.opensMs + HOURS * 3600e3),
+          active: true, owner: u.uid, code, createdAt: serverTimestamp() };
+        if (f.kind === "boda") ev.sides = f.sides;
+        const b = writeBatch(db);
+        b.update(doc(db, "codes", code), { used: true, usedBy: u.uid, usedAt: serverTimestamp(), eventId: eid, email: u.email || "" });
+        b.set(doc(db, "events", eid), ev);
+        await b.commit();
+        return eid;
+      }
+      throw new Error("No se ha podido generar el enlace");
+    },
+    async myEvents() {
+      const snap = await getDocs(query(collection(db, "events"), where("owner", "==", me().uid)));
+      return snap.docs.map(toEv).sort((a, b) => b.endsMs - a.endsMs);
+    },
+    async updateEvent(ev, f) {
+      const patch = { name: f.name, kind: f.kind, theme: f.theme, groups: f.groups, sides: f.kind === "boda" ? f.sides : deleteField() };
+      if (f.date !== ev.date || f.opensMs !== ev.opensMs) Object.assign(patch, { date: f.date, opensAt: Timestamp.fromMillis(f.opensMs), endsAt: Timestamp.fromMillis(f.opensMs + HOURS * 3600e3) });
+      await updateDoc(doc(db, "events", ev.id), patch);
+    },
+    async countPeople(eid) {
+      try { return (await getCountFromServer(collection(db, "events", eid, "roster"))).data().count; } catch { return null; }
+    }
+  };
+}
+
+/* ══════════════ BACKEND: demo (todo en este navegador) ══════════════ */
+function makeDemoApi() {
+  const K = "guino-panel-demo";
+  const load = () => { try { return JSON.parse(localStorage.getItem(K)) || {}; } catch { return {}; } };
+  let st = Object.assign({ user: null, events: {}, codes: {} }, load());
+  const save = () => { try { localStorage.setItem(K, JSON.stringify(st)); } catch {} };
+  let cb = () => {};
+  const login = email => { st.user = { uid: "demo-" + slug(email), email }; save(); cb(st.user); };
+  return {
+    demo: true,
+    pendingLink: () => false, storedEmail: () => "", completeLink: async () => {},
+    onUser(f) { cb = f; setTimeout(() => cb(st.user), 0); },
+    async sendLink(email) { login(email); return { instant: true }; },
+    async google() { login("demo@gmail.com"); },
+    async signOut() { st.user = null; save(); cb(null); },
+    async checkCode(code) { const c = st.codes[code]; if (!c) return { status: "free" }; return c.uid === st.user.uid ? { status: "mine", eventId: c.eventId } : { status: "invalid" }; },
+    async redeem(code, f) {
+      const eid = `${slug(f.name)}-${rand()}`;
+      st.events[eid] = { id: eid, name: f.name, kind: f.kind, theme: f.theme, groups: f.groups, date: f.date, opensMs: f.opensMs, endsMs: f.opensMs + HOURS * 3600e3, active: true, owner: st.user.uid, code, ...(f.kind === "boda" ? { sides: f.sides } : {}) };
+      st.codes[code] = { uid: st.user.uid, eventId: eid }; save(); return eid;
+    },
+    async myEvents() { return Object.values(st.events).filter(e => e.owner === st.user.uid).sort((a, b) => b.endsMs - a.endsMs); },
+    async updateEvent(ev, f) {
+      const e = st.events[ev.id];
+      Object.assign(e, { name: f.name, kind: f.kind, theme: f.theme, groups: f.groups, date: f.date, opensMs: f.opensMs, endsMs: f.opensMs + HOURS * 3600e3 });
+      if (f.kind === "boda") e.sides = f.sides; else delete e.sides;
+      save();
+    },
+    async countPeople(eid) { const e = st.events[eid]; return e && Date.now() >= e.opensMs ? 0 : null; }
+  };
+}
+
+/* ══════════════ Estado y arranque ══════════════ */
+const S = { api: null, user: null, events: [], view: "loading", current: null, flash: "", codeErr: "", linkSent: "" };
+const urlCode = normCode(params.get("code"));
+
+async function boot() {
+  try {
+    S.api = DEMO ? makeDemoApi() : await makeFirebaseApi(CFG.firebaseConfig);
+  } catch (e) { console.error(e); return fatal("No se ha podido conectar", "Comprueba tu conexión y recarga la página."); }
+  if (S.api.pendingLink()) {
+    const email = S.api.storedEmail();
+    if (email) { try { await S.api.completeLink(email); } catch (e) { console.error(e); S.view = "confirmEmail"; S.linkErr = linkError(e); } }
+    else S.view = "confirmEmail";
+  }
+  S.api.onUser(async u => {
+    S.user = u;
+    if (S.view === "confirmEmail" && !u) return render();
+    if (!u) { S.view = "login"; return render(); }
+    await afterLogin();
+  });
+}
+
+async function afterLogin() {
+  S.view = "loading"; render();
+  try {
+    S.events = await S.api.myEvents();
+    if (urlCode) {
+      const c = await S.api.checkCode(urlCode);
+      if (c.status === "mine") { history.replaceState(null, "", location.pathname + (DEMO && params.has("demo") ? "?demo" : "")); return openEvent(c.eventId); }
+      if (c.status === "invalid") S.codeErr = "Este código no es válido o ya se ha usado. Revisa que esté bien copiado.";
+      S.view = "activate"; return render();
+    }
+    if (S.events.length === 1) return openEvent(S.events[0].id);
+    S.view = S.events.length ? "home" : "activate"; render();
+  } catch (e) {
+    console.error(e);
+    fatal("No se han podido cargar tus eventos", e.code === "permission-denied" ? "Falta publicar las reglas nuevas de Firebase (firestore.rules)." : "Comprueba tu conexión y recarga la página.");
+  }
+}
+
+function openEvent(id) { S.current = id; S.view = "event"; render(); }
+function fatal(t, x) { S.view = "fatal"; S.fatal = { t, x }; render(); }
+const curEv = () => S.events.find(e => e.id === S.current);
+
+function linkError(e) {
+  const c = e?.code || "";
+  if (c.includes("invalid-email")) return "Ese email no parece válido.";
+  if (c.includes("quota-exceeded") || c.includes("too-many-requests")) return "Hoy se han enviado demasiados enlaces. Entrad con Google o probad otra vez más tarde.";
+  if (c.includes("invalid-action-code") || c.includes("expired")) return "El enlace ha caducado o ya se usó. Pide otro.";
+  if (c.includes("operation-not-allowed")) return "El acceso por email no está activado en Firebase (Authentication → Sign-in method → Correo electrónico → Vínculo por correo).";
+  if (c.includes("unauthorized")) return "Este dominio no está autorizado en Firebase (Authentication → Settings → Dominios autorizados).";
+  if (c.includes("popup")) return "Se ha cerrado la ventana de Google. Prueba otra vez.";
+  return "No ha funcionado: " + (c || e?.message || "error desconocido");
+}
+
+/* ══════════════ Estado del evento ══════════════ */
+function status(ev) {
+  const now = Date.now();
+  if (ev.active === false) return { k: "off", label: "Cerrado" };
+  if (ev.opensMs && now < ev.opensMs) return { k: "soon", label: "Próximamente" };
+  if (now < ev.endsMs) return { k: "on", label: "Abierto ahora" };
+  return { k: "off", label: "Terminado" };
+}
+const locked = ev => !!ev.opensMs && Date.now() >= ev.opensMs;
+
+/* ══════════════ Vistas ══════════════ */
+function render() {
+  const demo = DEMO ? `<div class="demo-bar">Modo demo: no se manda ningún email ni se guarda nada fuera de este navegador. Vale cualquier código de 10 letras o números.</div>` : "";
+  const v = S.view;
+  if (v === "loading") { M.innerHTML = `<div class="spin"></div>`; return; }
+  if (v === "fatal") { M.innerHTML = `<div class="card center"><h2>${esc(S.fatal.t)}</h2><p class="muted">${esc(S.fatal.x)}</p></div>`; return; }
+  if (v === "confirmEmail") return renderConfirm(demo);
+  if (v === "login") return renderLogin(demo);
+  if (v === "home") return renderHome(demo);
+  if (v === "activate") return renderActivate(demo);
+  if (v === "event") return renderEvent(demo);
+}
+
+function renderLogin(demo) {
+  M.innerHTML = `${demo}
+  <div class="card">
+    <h1>Hola 👋</h1>
+    ${urlCode ? `<div class="note">Tenéis el código <b>${esc(showCode(urlCode))}</b> listo para activar. Primero, entrad con vuestro email: así podréis volver a editar el evento cuando queráis.</div>` :
+      `<p class="center muted">Entrad para crear vuestro evento con el código de compra, o para editarlo si ya lo creasteis.</p>`}
+    ${S.linkSent ? `<div class="ok" style="margin-top:16px">📬 Os hemos mandado un enlace a <b>${esc(S.linkSent)}</b>. Abridlo <b>en este mismo móvil u ordenador</b> para entrar. Si no llega en un par de minutos, mirad en spam.</div>
+      <p class="center small" style="margin-top:12px"><button class="back" id="again">Usar otro email</button></p>` : `
+    <label for="email">Vuestro email</label>
+    <input id="email" type="email" autocomplete="email" inputmode="email" placeholder="nombre@ejemplo.com">
+    <button class="btn block" id="send" style="margin-top:12px">Mandadme el enlace para entrar</button>
+    <p class="small muted center" style="margin:8px 0 0">Sin contraseñas: os llega un enlace al correo.</p>
+    <div class="sep">o</div>
+    <button class="btn ghost block" id="google">Entrar con Google</button>`}
+    <div class="err" id="lerr"></div>
+  </div>`;
+  if (S.linkSent) { $("#again").onclick = () => { S.linkSent = ""; render(); }; return; }
+  const send = async () => {
+    const email = $("#email").value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $("#lerr").textContent = "Escribe un email válido."; return; }
+    $("#send").disabled = true; $("#send").textContent = "Enviando…";
+    try { const r = await S.api.sendLink(email); if (!r.instant) { S.linkSent = email; render(); } }
+    catch (e) { console.error(e); $("#lerr").textContent = linkError(e); $("#send").disabled = false; $("#send").textContent = "Mandadme el enlace para entrar"; }
+  };
+  $("#send").onclick = send;
+  $("#email").onkeydown = e => { if (e.key === "Enter") send(); };
+  $("#google").onclick = async () => { try { await S.api.google(); } catch (e) { $("#lerr").textContent = linkError(e); } };
+}
+
+function renderConfirm(demo) {
+  M.innerHTML = `${demo}<div class="card">
+    <h2>Confirmad vuestro email</h2>
+    <p class="muted">Habéis abierto el enlace en otro navegador o dispositivo. Escribid el mismo email al que llegó, para comprobar que sois vosotros.</p>
+    <label for="cemail">Email</label><input id="cemail" type="email" autocomplete="email">
+    <button class="btn block" id="cgo" style="margin-top:12px">Entrar</button>
+    <div class="err" id="cerr">${esc(S.linkErr || "")}</div></div>`;
+  $("#cgo").onclick = async () => {
+    const email = $("#cemail").value.trim(); if (!email) return;
+    $("#cgo").disabled = true;
+    try { await S.api.completeLink(email); S.view = "loading"; S.linkErr = ""; }
+    catch (e) { $("#cerr").textContent = linkError(e); $("#cgo").disabled = false; }
+  };
+}
+
+function header(demo) {
+  return `${demo}<div class="row small muted" style="justify-content:space-between;margin-bottom:4px">
+    <span>${esc(S.user?.email || "")}</span><button class="back" id="out">Salir</button></div>`;
+}
+function bindHeader() { $("#out").onclick = () => S.api.signOut(); }
+
+function renderHome(demo) {
+  M.innerHTML = `${header(demo)}
+    <h1>Vuestros eventos</h1>
+    ${S.events.map(ev => { const s = status(ev); return `<div class="card evrow" data-open="${esc(ev.id)}">
+      <div><h2 style="margin:0">${esc(ev.name)}</h2><div class="small muted">${ev.opensMs ? esc(fmtDay(ev.opensMs)) : ""}</div></div>
+      <span class="pill ${s.k}">${s.label}</span></div>`; }).join("")}
+    <button class="btn ghost block" id="new">Activar otro código</button>`;
+  bindHeader();
+  M.querySelectorAll("[data-open]").forEach(el => el.onclick = () => openEvent(el.dataset.open));
+  $("#new").onclick = () => { S.view = "activate"; S.codeErr = ""; render(); };
+}
+
+/* ─────────────── Formulario del evento (crear y editar) ─────────────── */
+function formHtml(ev) {
+  const kind = ev?.kind || "boda", theme = ev?.theme === "neon" ? "neon" : "boda";
+  const lock = ev && locked(ev);
+  const today = ymd(new Date()), max = ymd(new Date(Date.now() + 730 * 864e5));
+  return `
+    <label>¿Qué celebráis?</label>
+    <div class="opts">
+      <div><input type="radio" name="kind" id="k-boda" value="boda" ${kind === "boda" ? "checked" : ""}><label for="k-boda">💍 Una boda<small>Cada invitado dirá de parte de quién viene.</small></label></div>
+      <div><input type="radio" name="kind" id="k-fiesta" value="fiesta" ${kind === "fiesta" ? "checked" : ""}><label for="k-fiesta">🎉 Una fiesta<small>Cumpleaños, festival, fiesta privada…</small></label></div>
+    </div>
+    <div id="couple">
+      <div class="grid2">
+        <div><label for="s1">Nombre de un novio/a</label><input id="s1" maxlength="24" placeholder="Ana" value="${esc(ev?.sides?.[0] || "")}"></div>
+        <div><label for="s2">Nombre del otro</label><input id="s2" maxlength="24" placeholder="Luis" value="${esc(ev?.sides?.[1] || "")}"></div>
+      </div>
+    </div>
+    <label for="name">Nombre del evento <span class="muted small">(lo verán los invitados)</span></label>
+    <input id="name" maxlength="60" placeholder="Boda de Ana y Luis" value="${esc(ev?.name || "")}" ${ev ? 'data-touched="1"' : ""}>
+    <label for="date">Fecha</label>
+    <input id="date" type="date" min="${lock ? "" : today}" max="${max}" value="${esc(ev?.date || "")}" ${lock ? "disabled" : ""}>
+    <p class="small muted" id="datehint">${lock ? "La fecha ya no se puede cambiar: el radar se abrió ese día." : "El radar se abre a las 00:00 de ese día y se cierra a las 12:00 del día siguiente. Podéis cambiar la fecha hasta ese momento."}</p>
+    <label>Diseño</label>
+    <div class="opts">
+      <div><input type="radio" name="theme" id="t-boda" value="boda" ${theme === "boda" ? "checked" : ""}><label for="t-boda">Elegante<small>Como una invitación: marfil, verde salvia y oro.</small><span class="sw"><i style="background:#F6F1E7"></i><i style="background:#3E5C48"></i><i style="background:#B39257"></i></span></label></div>
+      <div><input type="radio" name="theme" id="t-neon" value="neon" ${theme === "neon" ? "checked" : ""}><label for="t-neon">Neón<small>Cartel de concierto: noche, rosa, lima y azul eléctrico.</small><span class="sw"><i style="background:#0D0A12"></i><i style="background:#FF2D95"></i><i style="background:#C8FF2E"></i><i style="background:#4F7BFF"></i></span></label></div>
+    </div>
+    <label class="chk" id="grpwrap"><input type="checkbox" id="grp" ${ev?.groups && kind === "boda" ? "checked" : ""}> <span><b>Permitir match de grupo 🔥</b><br><small class="muted">Si tres o más invitados que lo activen se guiñan todos con todos, se les avisa. Cada invitado decide si lo activa. Si en vuestra boda no encaja, dejadlo desmarcado.</small></span></label>
+    <p class="small muted" id="grpfiesta">En las fiestas el match de grupo está siempre disponible (cada invitado decide si lo activa).</p>`;
+}
+
+function bindForm() {
+  const sync = () => {
+    const boda = $("input[name=kind]:checked").value === "boda";
+    $("#couple").style.display = boda ? "" : "none";
+    $("#grpwrap").style.display = boda ? "" : "none";
+    $("#grpfiesta").style.display = boda ? "none" : "";
+    $("#name").placeholder = boda ? "Boda de Ana y Luis" : "Fiesta de fin de año";
+    autoName();
+  };
+  const autoName = () => {
+    if ($("#name").dataset.touched) return;
+    const boda = $("input[name=kind]:checked").value === "boda";
+    const a = $("#s1").value.trim(), b = $("#s2").value.trim();
+    $("#name").value = boda && a && b ? `Boda de ${a} y ${b}` : "";
+  };
+  M.querySelectorAll("input[name=kind]").forEach(r => r.onchange = sync);
+  $("#s1").oninput = autoName; $("#s2").oninput = autoName;
+  $("#name").oninput = () => { $("#name").dataset.touched = $("#name").value ? "1" : ""; };
+  sync();
+}
+
+function readForm(ev) {
+  const kind = $("input[name=kind]:checked").value === "fiesta" ? "fiesta" : "boda";
+  const theme = $("input[name=theme]:checked").value === "neon" ? "neon" : "boda";
+  const sides = [$("#s1").value.trim(), $("#s2").value.trim()];
+  const name = $("#name").value.trim();
+  if (kind === "boda" && (!sides[0] || !sides[1])) return { err: "Poned el nombre de los dos novios." };
+  if (!name) return { err: "Poned un nombre al evento." };
+  const lock = ev && locked(ev);
+  const date = lock ? ev.date : $("#date").value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || "")) return { err: "Elegid la fecha." };
+  const opensMs = lock ? ev.opensMs : opensOf(date);
+  if (!lock && (!ev || date !== ev.date)) {
+    if (date < ymd(new Date())) return { err: "La fecha no puede ser anterior a hoy." };
+    if (opensMs > Date.now() + 730 * 864e5) return { err: "La fecha está demasiado lejos (máximo dos años)." };
+  }
+  return { f: { name: name.slice(0, 60), kind, theme, sides, groups: kind === "fiesta" ? true : $("#grp").checked, date, opensMs } };
+}
+
+function renderActivate(demo) {
+  const code = S.draftCode ?? (urlCode ? showCode(urlCode) : "");
+  M.innerHTML = `${header(demo)}
+    ${S.events.length ? `<button class="back" id="back">← Vuestros eventos</button>` : ""}
+    <div class="card">
+      <h1>Cread vuestro evento</h1>
+      <p class="center muted">Tardáis dos minutos. Todo se puede cambiar después.</p>
+      <label for="code">Código de compra</label>
+      <input id="code" class="code-in" maxlength="11" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX" value="${esc(code)}">
+      <div class="err ${S.codeErr ? "box" : ""}" id="codeerr">${esc(S.codeErr)}</div>
+      ${formHtml(null)}
+      <button class="btn block gold" id="go" style="margin-top:20px">Activar y crear el evento</button>
+      <div class="err" id="ferr"></div>
+    </div>`;
+  bindHeader(); bindForm();
+  if (S.events.length) $("#back").onclick = () => { S.view = "home"; render(); };
+  $("#code").oninput = e => { const c = normCode(e.target.value).slice(0, 10); e.target.value = c.length > 5 ? c.slice(0, 5) + "-" + c.slice(5) : c; S.draftCode = e.target.value; $("#codeerr").textContent = ""; $("#codeerr").className = "err"; };
+  $("#go").onclick = activate;
+}
+
+async function activate() {
+  const code = normCode($("#code").value);
+  const err = (id, t) => { $(id).textContent = t; if (id === "#codeerr") $(id).className = "err box"; };
+  if (code.length !== 10) return err("#codeerr", "El código tiene 10 letras o números. Lo tenéis en el email de compra o en el PDF de Etsy.");
+  const r = readForm(null); if (r.err) return err("#ferr", r.err);
+  const btn = $("#go"); btn.disabled = true; btn.textContent = "Comprobando el código…"; $("#ferr").textContent = "";
+  try {
+    const c = await S.api.checkCode(code);
+    if (c.status === "mine") { S.events = await S.api.myEvents(); toast("Este código ya lo habíais activado."); return openEvent(c.eventId); }
+    if (c.status === "invalid") { err("#codeerr", "Este código no es válido o ya se ha usado. Revisad que esté bien copiado."); return; }
+    btn.textContent = "Creando vuestro evento…";
+    const eid = await S.api.redeem(code, r.f);
+    S.events = await S.api.myEvents(); S.draftCode = null; S.codeErr = "";
+    history.replaceState(null, "", location.pathname + (DEMO && params.has("demo") ? "?demo" : ""));
+    S.flash = "created"; openEvent(eid);
+  } catch (e) {
+    console.error(e);
+    err("#ferr", e.code === "permission-denied" ? "No se ha podido activar. Puede que el código ya se haya usado; si no, escribidnos." : "No se ha podido crear: revisad la conexión y probad otra vez.");
+  } finally { if (btn.isConnected) { btn.disabled = false; btn.textContent = "Activar y crear el evento"; } }
+}
+
+function renderEvent(demo) {
+  const ev = curEv();
+  if (!ev) { S.view = S.events.length ? "home" : "activate"; return render(); }
+  const s = status(ev);
+  const url = guestUrl(ev.id);
+  const preview = `index.html?demo#${ev.kind === "fiesta" ? "fiesta" : "boda"}-${ev.theme === "neon" ? "neon" : "elegante"}`;
+  const when = ev.opensMs ? `El radar se abre el <b>${esc(fmtFull(ev.opensMs))}</b> y se cierra el <b>${esc(fmtFull(ev.endsMs))}</b>.` : `El radar se cierra el <b>${esc(fmtFull(ev.endsMs))}</b>.`;
+  M.innerHTML = `${header(demo)}
+    ${S.events.length > 1 ? `<button class="back" id="back">← Vuestros eventos</button>` : ""}
+    ${S.flash === "created" ? `<div class="ok">🎉 <b>¡Listo! Vuestro evento está creado.</b> Descargad el cartel e imprimidlo: es lo único que necesitáis el día de la boda.</div>` : ""}
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:flex-start"><h2 style="margin:0">${esc(ev.name)}</h2><span class="pill ${s.k}">${s.label}</span></div>
+      <p class="small muted">${when}</p>
+      <p id="people" class="small"></p>
+      <h3>Lo que vais a necesitar</h3>
+      <div class="row">
+        <button class="btn gold" id="poster">🖨️ Descargar el cartel</button>
+        <button class="btn ghost" id="qrbtn">Ver el QR</button>
+      </div>
+      <p class="small muted" style="margin-top:8px">El cartel se abre listo para imprimir en A4. Para guardarlo como PDF, elegid «Guardar como PDF» en la ventana de imprimir.</p>
+      <div id="qrwrap"></div>
+      <label>Enlace para los invitados</label>
+      <div class="link"><code>${esc(url)}</code><button class="btn ghost sm" id="copy">Copiar</button></div>
+      <p class="small muted">El enlace y el QR <b>no cambian nunca</b>, aunque cambiéis la fecha o el nombre. Si cambiáis el nombre o el diseño, volved a descargar el cartel.</p>
+      <p><a href="${esc(preview)}" target="_blank" rel="noopener">👀 Ver cómo lo verán vuestros invitados (demo con gente de mentira)</a></p>
+    </div>
+    <div class="card">
+      <h2>Editar el evento</h2>
+      ${formHtml(ev)}
+      <button class="btn block" id="save" style="margin-top:20px">Guardar cambios</button>
+      <div class="err" id="ferr"></div>
+    </div>
+    <div class="card">
+      <h2>Consejos para que funcione</h2>
+      <ul class="steps">
+        <li>Poned el cartel <b>donde se hace cola</b>: la barra, la entrada al banquete o el photocall. Si podéis, uno pequeño en cada mesa.</li>
+        <li>Que alguien lo <b>anuncie una vez</b> (el DJ, el maestro de ceremonias o un amigo con gracia) después de la cena: es lo que más dispara el uso.</li>
+        <li>Recordad que <b>nadie ve a quién ha guiñado nadie</b> salvo que el guiño sea mutuo. Contadlo: quita la vergüenza.</li>
+        <li>Al día siguiente se cierra solo. Las fichas se borran como mucho 72 horas después.</li>
+      </ul>
+    </div>
+    <p class="small muted center">¿Algún problema? Escribidnos y lo arreglamos.</p>`;
+  S.flash = "";
+  bindHeader(); bindForm();
+  if (S.events.length > 1) $("#back").onclick = () => { S.view = "home"; render(); };
+  $("#poster").onclick = () => printPoster(ev);
+  $("#qrbtn").onclick = () => { const w = $("#qrwrap"); if (w.innerHTML) { w.innerHTML = ""; $("#qrbtn").textContent = "Ver el QR"; return; } drawQR(w, ev.id, 220); $("#qrbtn").textContent = "Ocultar el QR"; };
+  $("#copy").onclick = async () => { try { await navigator.clipboard.writeText(url); $("#copy").textContent = "¡Copiado!"; } catch { toast("No se ha podido copiar: mantened pulsado el enlace."); } };
+  $("#save").onclick = () => saveEvent(ev);
+  if (s.k !== "soon") S.api.countPeople(ev.id).then(n => { if (n != null && $("#people")) $("#people").innerHTML = `👥 <b>${n}</b> ${n === 1 ? "persona ha entrado" : "personas han entrado"} en el radar.`; });
+}
+
+async function saveEvent(ev) {
+  const r = readForm(ev); if (r.err) { $("#ferr").textContent = r.err; return; }
+  const btn = $("#save"); btn.disabled = true; btn.textContent = "Guardando…"; $("#ferr").textContent = "";
+  try {
+    await S.api.updateEvent(ev, r.f);
+    S.events = await S.api.myEvents();
+    toast("Guardado. El enlace y el QR siguen siendo los mismos.");
+    render();
+  } catch (e) {
+    console.error(e);
+    $("#ferr").textContent = e.code === "permission-denied" ? "No se ha podido guardar. Si el evento ya terminó o ya se abrió el radar, la fecha no se puede cambiar." : "No se ha podido guardar: revisad la conexión.";
+    btn.disabled = false; btn.textContent = "Guardar cambios";
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
