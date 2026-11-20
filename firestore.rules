@@ -80,6 +80,26 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
 
+      // ── Instagram enviado a un match ────────────────────────
+      // Id = "<de>_<para>". Solo se puede enviar a alguien con quien
+      // tienes match, y solo lo leen quien lo envía y quien lo recibe.
+      match /shares/{sid} {
+        allow create, update: if signedIn() && eventOpen(eid)
+          && request.resource.data.keys().hasOnly(['from', 'to', 'ig', 'createdAt'])
+          && request.resource.data.from == request.auth.uid
+          && request.resource.data.to is string
+          && sid == request.auth.uid + '_' + request.resource.data.to
+          && request.resource.data.ig is string
+          && request.resource.data.ig.matches('^[a-z0-9._]{1,30}$')
+          && isMatched(eid, request.auth.uid, request.resource.data.to)
+          && (resource == null || resource.data.from == request.auth.uid);
+        allow get: if isAdmin() || (signedIn() && (resource == null
+          || resource.data.from == request.auth.uid || resource.data.to == request.auth.uid));
+        allow list: if isAdmin() || (signedIn()
+          && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid));
+        allow delete: if isAdmin() || (signedIn() && resource.data.from == request.auth.uid);
+      }
+
       // ── Mensaje para los matches ────────────────────────────
       // Privado: SOLO lo puede leer su dueño y las personas con las que
       // tiene match. Ni siquiera el panel de administración lo lee
