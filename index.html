@@ -170,6 +170,17 @@
   .hint{background:var(--ok-soft);color:var(--ok);border-radius:12px;padding:.55em .85em;font-size:.95rem;margin-top:4px}
   [data-theme=boda] .hint{font-family:var(--f-display);font-size:1.12rem;background:transparent;border-top:1px solid var(--line);border-bottom:1px solid var(--line);border-radius:0}
   [data-theme=neon] .hint{color:var(--ink);background:transparent;border-left:3px solid var(--lime);border-radius:0;padding:.3em .9em}
+  .info{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1.5px solid currentColor;background:transparent;color:var(--soft);font:700 12px/1 Georgia,serif;font-style:italic;cursor:pointer;padding:0;vertical-align:1px;margin-left:4px}
+  .info:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .grpfaces{display:flex;justify-content:center;margin:12px 0 10px;flex-wrap:wrap}
+  .grpfaces img{width:78px;height:78px;border-radius:50%;object-fit:cover;border:3px solid var(--card);margin-left:-14px;box-shadow:var(--shadow);cursor:zoom-in}
+  .grpfaces img:first-child{margin-left:0}
+  .grpfaces.sm{justify-content:flex-start}.grpfaces.sm img{width:54px;height:54px;margin-left:-10px}
+  [data-theme=boda] .grpfaces img{box-shadow:0 0 0 1px var(--gold)}
+  [data-theme=neon] .grpfaces img{box-shadow:0 0 0 2px var(--accent),0 0 18px rgba(255,45,149,.35)}
+  [data-theme=neon] .grpfaces img:nth-child(even){box-shadow:0 0 0 2px var(--lime),0 0 18px rgba(200,255,46,.3)}
+  [data-theme=neon] .grpcard{border-color:var(--accent);box-shadow:0 0 30px rgba(255,45,149,.25)}
+  [data-theme=boda] .grpcard{outline-color:var(--gold)}
   .igwrap{margin-top:10px;width:100%}
   .mrow .igwrap{margin-top:2px}
   .igin{display:flex;flex-direction:column;gap:8px;align-items:center;padding:10px;border-radius:12px;background:var(--ok-soft);color:var(--ink);font-size:.92rem}
@@ -237,7 +248,7 @@ const S = {
   view: "loading", tab: "radar", editing: false,
   selfie: null, stream: null, errorMsg: "", watching: false, seenKey: "",
   contacts: {}, matchBusy: false,
-  igIn: {}, igOut: {}, igReady: false
+  igIn: {}, igOut: {}, pairs: {}, groups: []
 };
 
 /* ══════════════ BACKEND: Firebase ══════════════ */
@@ -272,15 +283,18 @@ async function makeFirebaseApi(cfg) {
         if (!s.exists()) return null;
         let c = {};
         try { const cs = await getDoc(doc(db, "events", eid, "contacts", uid)); if (cs.exists()) c = cs.data(); } catch {}
-        return { id: uid, ...s.data(), message: c.message || "" };
+        let g = false;
+        try { const os = await getDoc(doc(db, "events", eid, "optins", uid)); g = os.exists() && os.data().group === true; } catch {}
+        return { id: uid, ...s.data(), message: c.message || "", group: g };
       } catch { return null; }
     },
     // La ficha (pública para el evento) y el mensaje para los matches (privado) van en documentos distintos.
     async saveProfile(eid, uid, data) {
-      const { message, ...profile } = data;
+      const { message, group, ...profile } = data;
       const b = writeBatch(db);
       b.set(doc(db, "events", eid, "profiles", uid), { ...profile, updatedAt: serverTimestamp() });
       b.set(doc(db, "events", eid, "contacts", uid), { message: message || "", updatedAt: serverTimestamp() });
+      b.set(doc(db, "events", eid, "optins", uid), { group: group === true, updatedAt: serverTimestamp() });
       await b.commit();
     },
     async getContact(eid, otherUid) {
@@ -296,6 +310,7 @@ async function makeFirebaseApi(cfg) {
       await Promise.all(shares.docs.map(d => deleteDoc(d.ref)));
       const b = writeBatch(db);
       b.delete(doc(db, "events", eid, "contacts", uid));
+      b.delete(doc(db, "events", eid, "optins", uid));
       b.delete(doc(db, "events", eid, "profiles", uid));
       await b.commit();
     },
@@ -309,12 +324,16 @@ async function makeFirebaseApi(cfg) {
       return onSnapshot(query(col(eid, "matches"), where("members", "array-contains", uid)),
         s => cb(s.docs.map(d => ({ id: d.id, members: d.data().members }))), onErr);
     },
-    // Instagram que yo he enviado (out) y que me han enviado (in), por persona.
-    watchShares(eid, uid, cb, onErr) {
-      const st = { in: {}, out: {} }, done = { in: false, out: false };
-      const push = () => { if (done.in && done.out) cb({ in: { ...st.in }, out: { ...st.out } }); };
-      onSnapshot(query(col(eid, "shares"), where("to", "==", uid)), s => { st.in = {}; s.docs.forEach(d => st.in[d.data().from] = d.data().ig); done.in = true; push(); }, onErr);
-      onSnapshot(query(col(eid, "shares"), where("from", "==", uid)), s => { st.out = {}; s.docs.forEach(d => st.out[d.data().to] = d.data().ig); done.out = true; push(); }, onErr);
+    // Escucha un documento concreto (Instagram enviado de "from" a "to"). Documento a documento,
+    // para que las reglas se comprueben con certeza (las consultas con "o" pueden fallar).
+    watchShareDoc(eid, from, to, cb) {
+      return onSnapshot(doc(db, "events", eid, "shares", `${from}_${to}`),
+        s => cb(s.exists() ? s.data().ig : null), e => { console.warn("share", e?.code); cb(null); });
+    },
+    // ¿Han hecho match entre sí dos de mis matches? (las reglas solo lo permiten en grupos voluntarios)
+    watchMatchPair(eid, a, b, cb) {
+      const id = [a, b].sort().join("_");
+      return onSnapshot(doc(db, "events", eid, "matches", id), s => cb(s.exists()), () => cb(false));
     },
     async sendIg(eid, uid, to, ig) {
       await setDoc(doc(db, "events", eid, "shares", `${uid}_${to}`), { from: uid, to, ig, createdAt: serverTimestamp() });
@@ -322,7 +341,8 @@ async function makeFirebaseApi(cfg) {
     async sendSignal(eid, uid, to) {
       await setDoc(doc(db, "events", eid, "signals", `${uid}_${to}`), { from: uid, to, createdAt: serverTimestamp() });
       // Las reglas solo te dejan ver el guiño de vuelta si tú ya has mandado la tuya.
-      const back = await getDoc(doc(db, "events", eid, "signals", `${to}_${uid}`));
+      let back = null;
+      try { back = await getDoc(doc(db, "events", eid, "signals", `${to}_${uid}`)); } catch { return false; }
       if (!back.exists()) return false;
       const members = [uid, to].sort();
       try { await setDoc(doc(db, "events", eid, "matches", members.join("_")), { members, createdAt: serverTimestamp() }); }
@@ -342,10 +362,10 @@ function makeDemoApi() {
   const uid = "yo";
   const raw = [
     ["Lucía", "mujer", "hombres", "Bailo fatal pero con muchas ganas. Cuéntame tu mejor anécdota 😄", true, "#C9806B", "a"],
-    ["Marta", "mujer", "todos", "Me gusta que me hablen sin prisa y con humor.", false, "#8C6FA8", "b"],
+    ["Marta", "mujer", "todos", "Me gusta que me hablen sin prisa y con humor.", true, "#8C6FA8", "b"],
     ["Carmen", "mujer", "hombres", "Invítame a una caña y cuéntame qué haces cuando no estás de fiesta.", true, "#B5654C", "ambos"],
     ["Elena", "mujer", "mujeres", "Si sabes bailar bachata, ya me caes bien.", true, "#6F8FA8", "b"],
-    ["Paula", "mujer", "todos", "Soy la del mono negro. Sorpréndeme.", false, "#A88F6F", "a"],
+    ["Paula", "mujer", "todos", "Soy la del mono negro. Sorpréndeme.", true, "#A88F6F", "a"],
     ["Javi", "hombre", "mujeres", "Soy el de la corbata amarilla. ¿Echamos un baile?", true, "#5E8C77", "b"],
     ["Rubén", "hombre", "todos", "Nada de frases hechas: dime algo que te haga reír.", false, "#7C7A9E", "a"],
     ["Dani", "hombre", "hombres", "Pajarita azul y ganas de fiesta.", true, "#9E7A7C", "ambos"],
@@ -358,8 +378,11 @@ function makeDemoApi() {
   const IG = { f0: ["lucia.baila", "reply"], f2: ["carmen.mrtz", "eager"], f9: ["alex.flores", "reply"] };
   let mine = null; const sent = new Set(); let matches = [];
   const igIn = {}, igOut = {};
-  const L = { p: [], s: [], m: [], sh: [] };
-  const emitSh = () => L.sh.forEach(f => f({ in: { ...igIn }, out: { ...igOut } }));
+  // Grupo de mentira: Marta, Paula y Alex se han guiñado entre ellos y aceptan match de grupo.
+  const PAIRS = new Set(["f1_f4", "f1_f9", "f4_f9"]);
+  const L = { p: [], s: [], m: [], shIn: {}, shOut: {}, pair: [] };
+  const emitSh = () => { for (const k in L.shIn) L.shIn[k](igIn[k] || null); for (const k in L.shOut) L.shOut[k](igOut[k] || null); };
+  const emitPairs = () => L.pair.forEach(f => f());
   const pub = ({ message, ...rest }) => { if (S.event?.kind !== "boda") delete rest.side; return rest; };
   const all = () => (mine ? [pub(mine), ...fakes.map(pub)] : fakes.map(pub));
   const emit = () => { L.p.forEach(f => f(all())); L.s.forEach(f => f([...sent])); L.m.forEach(f => f([...matches])); };
@@ -370,14 +393,21 @@ function makeDemoApi() {
     async getEvent() {
       const { kind, theme } = demoPrefs();
       return normEvent(kind === "boda"
-        ? { name: "Boda de Ana y Luis", kind, sides: ["Ana", "Luis"], theme, active: true, endsAt: Date.now() + 6 * 3600e3 }
+        ? { name: "Boda de Ana y Luis", kind, sides: ["Ana", "Luis"], theme, groups: true, active: true, endsAt: Date.now() + 6 * 3600e3 }
         : { name: "Fiesta de fin de año", kind, theme, active: true, endsAt: Date.now() + 6 * 3600e3 });
     },
     async getMyProfile() { return mine; },
     async getContact(e, id) { const f = fakes.find(x => x.id === id); return f ? { message: f.message } : null; },
-    async saveProfile(e, u, d) { await wait(300); mine = { id: uid, ...d }; emit(); },
+    async saveProfile(e, u, d) { await wait(300); mine = { id: uid, ...d }; emit(); emitPairs(); },
     async deleteMe() { mine = null; sent.clear(); matches = []; for (const k in igOut) delete igOut[k]; emit(); emitSh(); },
-    watchShares(e, u, cb) { L.sh.push(cb); cb({ in: { ...igIn }, out: { ...igOut } }); },
+    watchShareDoc(e, from, to, cb) {
+      if (to === uid) { L.shIn[from] = cb; cb(igIn[from] || null); } else { L.shOut[to] = cb; cb(igOut[to] || null); }
+      return () => {};
+    },
+    watchMatchPair(e, a, b, cb) {
+      const f = () => cb(PAIRS.has([a, b].sort().join("_")) && mine?.group === true && S.event?.groups);
+      L.pair.push(f); f(); return () => {};
+    },
     async sendIg(e, u, to, ig) {
       await wait(300); igOut[to] = ig; emitSh();
       const r = IG[to];
@@ -429,7 +459,7 @@ function normEvent(e) {
   const kind = e.kind === "fiesta" ? "fiesta" : "boda";
   const sides = kind === "boda" && Array.isArray(e.sides) && e.sides.length === 2 && e.sides.every(x => typeof x === "string" && x.trim())
     ? e.sides.map(x => x.trim().slice(0, 24)) : null;
-  return { ...e, kind, sides, theme: normTheme(e.theme) };
+  return { ...e, kind, sides, theme: normTheme(e.theme), groups: kind === "fiesta" ? true : e.groups === true };
 }
 function demoPrefs() {
   const tokens = location.hash.replace("#", "").split("-");
@@ -493,6 +523,79 @@ function contactBlock(p, c) {
   return `<p class="muted small" style="margin:10px 0 4px">Esto te dice ${esc(p.name)}:</p><div class="hint" style="font-size:1.05rem;font-style:italic">“${esc(c.message)}”</div>`;
 }
 
+/* ─────────────── Escuchas por match: Instagram y grupos ─────────────── */
+const SUBS = { share: {}, pair: {} };
+const groupsOn = () => !!S.event?.groups && S.me?.group === true;
+function syncPartners() {
+  const partners = [...new Set(S.matches.map(otherOf).filter(Boolean))].sort();
+  for (const id of partners) {
+    if (SUBS.share[id]) continue;
+    let first = true;
+    SUBS.share[id] = [
+      S.api.watchShareDoc(S.eventId, id, S.uid, ig => {
+        const had = S.igIn[id];
+        if (ig) S.igIn[id] = ig; else delete S.igIn[id];
+        refreshIg();
+        if (ig && !had && !first) { const p = profileById(id); if (p) { toast(`📸 ${p.name} te ha enviado su Instagram`); navigator.vibrate?.(60); } }
+        first = false;
+      }),
+      S.api.watchShareDoc(S.eventId, S.uid, id, ig => { if (ig) S.igOut[id] = ig; else delete S.igOut[id]; refreshIg(); })
+    ];
+  }
+  if (!groupsOn()) return;
+  for (let i = 0; i < partners.length; i++) for (let j = i + 1; j < partners.length; j++) {
+    const key = partners[i] + "_" + partners[j];
+    if (SUBS.pair[key]) continue;
+    SUBS.pair[key] = S.api.watchMatchPair(S.eventId, partners[i], partners[j], ex => { S.pairs[key] = ex; computeGroups(); });
+  }
+}
+// Grupos = conjuntos máximos de mis matches que también han hecho match entre todos ellos (+ yo).
+function computeGroups() {
+  const partners = [...new Set(S.matches.map(otherOf).filter(Boolean))].sort();
+  const edge = (a, b) => S.pairs[[a, b].sort().join("_")] === true;
+  const cliques = [];
+  const n = partners.length;
+  for (let mask = 1; mask < (1 << n); mask++) {
+    const set = partners.filter((_, i) => mask & (1 << i));
+    if (set.length < 2) continue;
+    let ok = true;
+    for (let i = 0; i < set.length && ok; i++) for (let j = i + 1; j < set.length && ok; j++) if (!edge(set[i], set[j])) ok = false;
+    if (ok) cliques.push(set);
+  }
+  const maximal = cliques.filter(c => !cliques.some(d => d.length > c.length && c.every(x => d.includes(x))));
+  const before = JSON.stringify(S.groups);
+  S.groups = groupsOn() ? maximal : [];
+  if (JSON.stringify(S.groups) !== before) { if (S.view === "main") render(); checkNewMatches(); }
+}
+const groupId = (g) => "g:" + [...g].sort().join("_");
+function namesList(arr) { return arr.length <= 1 ? arr.join("") : arr.slice(0, -1).join(", ") + " y " + arr[arr.length - 1]; }
+function showGroup(g) {
+  const ps = g.map(profileById).filter(Boolean);
+  if (ps.length < g.length) return false;
+  navigator.vibrate?.([60, 40, 60, 40, 140]);
+  const o = document.createElement("div"); o.className = "overlay match";
+  o.innerHTML = `<div class="modal grpmodal">
+    ${deco()}<div class="brand">Match de grupo 🔥</div>
+    <div class="grpfaces"><img src="${safeImg(S.me?.selfie)}" alt="">${ps.map(p => `<img src="${safeImg(p.selfie)}" alt="">`).join("")}</div>
+    <h2 class="serif">Os habéis guiñado todos con todos</h2>
+    <p class="lead">Tú, ${esc(namesList(ps.map(p => p.name)))}: ${ps.length + 1} personas que se gustan entre sí.</p>
+    <p class="muted small">Algo fuera de lo común. Lo que pase ahora es cosa vuestra 😉</p>
+    <button class="btn block" style="margin-top:16px" data-close>¡Vamos!</button></div>`;
+  o.querySelector("[data-close]").onclick = () => { o.remove(); S.matchBusy = false; checkNewMatches(); };
+  document.body.appendChild(o);
+  return true;
+}
+function infoPop(html) {
+  const o = document.createElement("div"); o.className = "overlay";
+  o.innerHTML = `<div class="modal" style="text-align:left"><div>${html}</div><button class="btn block" style="margin-top:16px">Entendido</button></div>`;
+  o.addEventListener("click", e => { if (e.target === o || e.target.closest("button")) o.remove(); });
+  document.body.appendChild(o);
+}
+const GROUP_INFO = `<h2 class="serif" style="margin-top:0">Match de grupo 🔥</h2>
+  <p>Si tú y otras dos o más personas os guiñáis <b>todos con todos</b>, os avisaremos de que tenéis un match de grupo. Lo que hagáis con eso es cosa vuestra.</p>
+  <p class="muted small">Si lo activas, las demás personas del grupo sabrán que formas parte y que también se han guiñado entre ellas. Solo se forman grupos entre quienes lo hayan activado, y esta casilla no la ve nadie más. Puedes quitarla cuando quieras desde «Mi ficha».</p>`;
+document.addEventListener("click", (e) => { if (e.target.closest("[data-info=grp]")) { e.preventDefault(); e.stopPropagation(); infoPop(GROUP_INFO); } });
+
 /* ─────────────── Instagram entre matches ─────────────── */
 // Acepta "@usuario", "usuario", "instagram.com/usuario" o el enlace completo. Devuelve "" si no es válido.
 function normIg(raw) {
@@ -552,7 +655,7 @@ document.addEventListener("click", async (e) => {
 
 // Tocar una foto la amplía (para reconocer a la persona).
 document.addEventListener("click", (e) => {
-  const img = e.target.closest(".person img, .mrow img, .pair img");
+  const img = e.target.closest(".person img, .mrow img, .pair img, .grpfaces img");
   if (!img || !img.src.startsWith("data:image/")) return;
   const o = document.createElement("div"); o.className = "overlay zoom";
   o.innerHTML = `<img src="${esc(img.src)}" alt="" style="width:min(86vw,420px);height:min(86vw,420px);object-fit:cover;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.4)">`;
@@ -601,13 +704,7 @@ function startMain() {
     const onErr = (e) => { console.error(e); if (String(e?.code).includes("permission")) showEnded(); };
     S.api.watchProfiles(S.eventId, list => { S.profiles = list; if (S.view === "main") render(); checkNewMatches(); }, onErr);
     S.api.watchMySignals(S.eventId, S.uid, tos => { S.sentTo = new Set(tos); if (S.view === "main") render(); }, onErr);
-    S.api.watchMatches(S.eventId, S.uid, ms => { S.matches = ms; if (S.view === "main") render(); checkNewMatches(); ensureContacts(false); }, onErr);
-    S.api.watchShares(S.eventId, S.uid, sh => {
-      const fresh = S.igReady ? Object.keys(sh.in).filter(k => !S.igIn[k]) : [];
-      S.igIn = sh.in; S.igOut = sh.out; S.igReady = true;
-      refreshIg();
-      fresh.forEach(k => { const p = profileById(k); if (p) { toast(`📸 ${p.name} te ha enviado su Instagram`); navigator.vibrate?.(60); } });
-    }, (e) => console.error(e));
+    S.api.watchMatches(S.eventId, S.uid, ms => { S.matches = ms; if (S.view === "main") render(); checkNewMatches(); ensureContacts(false); syncPartners(); }, onErr);
     setInterval(() => { if (S.view === "main" && ended()) showEnded(); }, 30000);
   }
   render();
@@ -616,6 +713,8 @@ function startMain() {
 function checkNewMatches() {
   if (S.matchBusy || $(".overlay.match")) return;
   const seen = seenSet();
+  const g = S.groups.find(x => !seen.has(groupId(x)));
+  if (g) { S.matchBusy = true; if (showGroup(g)) { markSeen(groupId(g)); return; } S.matchBusy = false; }
   const m = S.matches.find(x => !seen.has(x.id));
   if (!m) return;
   const p = profileById(otherOf(m));
@@ -709,6 +808,7 @@ function renderForm(app, demo) {
     <p class="small muted">Un rompehielos, algo que te gusta, cómo te gusta que te hablen… Solo lo verá quien haga match contigo.</p>
 
 
+    ${S.event.groups ? `<label class="check"><input type="checkbox" id="grp" ${me?.group ? "checked" : ""}><span>Me apunto a <b>match de grupo</b> <button type="button" class="info" data-info="grp" aria-label="Qué es el match de grupo">i</button></span></label>` : ""}
     ${S.editing ? "" : `<label class="check"><input type="checkbox" id="adult"><span>Tengo 18 años o más y acepto aparecer en el radar de este evento. Mi ficha se borrará al terminar.</span></label>`}
     <div class="err" id="err"></div>
     <button class="btn block" id="save">${S.editing ? "Guardar cambios" : "Entrar al radar"}</button>
@@ -786,12 +886,13 @@ async function saveForm() {
   const side = $("input[name=side]:checked")?.value;
   if (hasSides() && !side) return err.textContent = `Dinos de parte de quién vienes (${S.event.sides[0]}, ${S.event.sides[1]} o los dos).`;
   const btn = $("#save"); btn.disabled = true; btn.textContent = "Guardando…";
-  const data = { name, gender, interest, selfie: S.selfie, message };
+  const data = { name, gender, interest, selfie: S.selfie, message, group: !!S.event.groups && !!$("#grp")?.checked };
   if (hasSides()) data.side = side;
   try {
     await S.api.saveProfile(S.eventId, S.uid, data);
     stopCam();
     S.me = { id: S.uid, ...data }; S.selfie = null;
+    if (!groupsOn()) { S.groups = []; } setTimeout(syncPartners, 0); setTimeout(computeGroups, 0);
     const wasEditing = S.editing; S.editing = false;
     startMain();
     if (wasEditing) toast("Ficha actualizada");
@@ -829,6 +930,12 @@ function renderMain(app, demo) {
 
   if (S.tab === "matches") {
     body = `<h2>Tus matches</h2>`;
+    body += S.groups.map(g => {
+      const ps = g.map(profileById).filter(Boolean);
+      return `<div class="card grpcard"><div class="brand sm">Match de grupo 🔥</div>
+        <div class="grpfaces sm"><img src="${safeImg(S.me?.selfie)}" alt="">${ps.map(p => `<img src="${safeImg(p.selfie)}" alt="">`).join("")}</div>
+        <p style="margin:6px 0 0">Tú, ${esc(namesList(ps.map(p => p.name)))}: os habéis guiñado todos con todos.</p></div>`;
+    }).join("");
     body += nMatches ? `<div class="card">${S.matches.map(m => {
       const p = profileById(otherOf(m));
       const c = S.contacts[m.members.find(x => x !== S.uid)];
@@ -846,6 +953,7 @@ function renderMain(app, demo) {
         <h2 style="margin:.4em 0 .1em">${esc(me.name)}</h2>
         <p class="muted small">${lbl[me.gender] || ""} · le interesan ${lbl[me.interest] || ""}</p>
         ${me.side && hasSides() ? `<div class="sidetag">${esc(sideLabel(me.side, true))}</div>` : ""}
+        ${S.event.groups ? `<p class="small muted" style="margin:6px 0">${me.group ? "🔥 Te apuntas a match de grupo" : "No te apuntas a match de grupo"} <button type="button" class="info" data-info="grp" aria-label="Qué es">i</button></p>` : ""}
         ${me.message ? `<div class="hint" style="font-style:italic">“${esc(me.message)}”</div>` : ""}
         <p class="small muted" style="margin-top:12px">Guiños usados: ${S.sentTo.size} de ${MAX_SIGNALS}</p>
       </div>
