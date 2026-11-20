@@ -124,6 +124,7 @@
   .seg input:focus-visible+label{outline:2px solid var(--accent);outline-offset:2px}
   .check{display:flex;gap:10px;align-items:flex-start;margin:18px 0;font-size:.92rem}
   .check input{width:20px;height:20px;margin-top:2px;accent-color:var(--accent);flex:none}
+  .check a{color:var(--accent);font-weight:600}
   .selfie{position:relative;width:210px;height:210px;margin:6px auto 12px;border-radius:50%;overflow:hidden;background:var(--accent-soft);display:flex;align-items:center;justify-content:center}
   [data-theme=boda] .selfie{border:4px solid var(--card);box-shadow:0 0 0 1px var(--gold),var(--shadow)}
   [data-theme=neon] .selfie{border:4px solid var(--bg);box-shadow:0 0 0 3px var(--accent),0 0 40px rgba(255,45,149,.35)}
@@ -264,6 +265,15 @@ async function makeFirebaseApi(cfg) {
   const db = fs.getFirestore(app);
   const { doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, query, where, getDocs, serverTimestamp, writeBatch } = fs;
   const col = (eid, name) => collection(db, "events", eid, name);
+  const R = { eid: null, cb: null, ids: [], subs: {}, vis: {}, stamp: {} };
+  const emitRadar = () => R.cb?.(R.ids.filter(id => R.vis[id]).map(id => R.vis[id]), R.ids.length);
+  function subProfile(id) {
+    R.subs[id]?.();
+    R.subs[id] = onSnapshot(doc(db, "events", R.eid, "profiles", id),
+      s => { if (s.exists()) R.vis[id] = { id, ...s.data() }; else delete R.vis[id]; emitRadar(); },
+      () => { delete R.vis[id]; R.subs[id] = () => {}; emitRadar(); });
+  }
+  function resubAll() { if (R.eid) R.ids.forEach(subProfile); }
 
   return {
     async signIn() {
@@ -275,7 +285,7 @@ async function makeFirebaseApi(cfg) {
       const snap = await getDoc(doc(db, "events", eid));
       if (!snap.exists()) return null;
       const d = snap.data();
-      return normEvent({ name: d.name, active: d.active !== false, endsAt: d.endsAt?.toMillis?.() ?? 0, theme: d.theme, kind: d.kind, sides: d.sides, groups: d.groups });
+      return normEvent({ name: d.name, active: d.active !== false, opensAt: d.opensAt?.toMillis?.() ?? 0, endsAt: d.endsAt?.toMillis?.() ?? 0, theme: d.theme, kind: d.kind, sides: d.sides, groups: d.groups });
     },
     async getMyProfile(eid, uid) {
       try {
@@ -285,17 +295,23 @@ async function makeFirebaseApi(cfg) {
         try { const cs = await getDoc(doc(db, "events", eid, "contacts", uid)); if (cs.exists()) c = cs.data(); } catch {}
         let g = false;
         try { const os = await getDoc(doc(db, "events", eid, "optins", uid)); g = os.exists() && os.data().group === true; } catch {}
-        return { id: uid, ...s.data(), message: c.message || "", group: g };
+        let pr = {};
+        try { const ps = await getDoc(doc(db, "events", eid, "prefs", uid)); if (ps.exists()) pr = ps.data(); } catch {}
+        return { id: uid, ...s.data(), gender: pr.gender, interest: pr.interest, message: c.message || "", group: g };
       } catch { return null; }
     },
-    // La ficha (pública para el evento) y el mensaje para los matches (privado) van en documentos distintos.
+    // Ficha visible (nombre, foto, de parte de quién) · preferencias privadas (género, a quién busca)
+    // · mensaje para matches · casilla de grupo · entrada en la lista de participantes (solo el id).
     async saveProfile(eid, uid, data) {
-      const { message, group, ...profile } = data;
+      const { message, group, gender, interest, ...profile } = data;
       const b = writeBatch(db);
+      b.set(doc(db, "events", eid, "prefs", uid), { gender, interest, updatedAt: serverTimestamp() });
       b.set(doc(db, "events", eid, "profiles", uid), { ...profile, updatedAt: serverTimestamp() });
+      b.set(doc(db, "events", eid, "roster", uid), { updatedAt: serverTimestamp() });
       b.set(doc(db, "events", eid, "contacts", uid), { message: message || "", updatedAt: serverTimestamp() });
       b.set(doc(db, "events", eid, "optins", uid), { group: group === true, updatedAt: serverTimestamp() });
       await b.commit();
+      resubAll(); // mis preferencias han cambiado: vuelve a preguntar a quién puedo ver
     },
     async getContact(eid, otherUid) {
       try {
@@ -311,11 +327,25 @@ async function makeFirebaseApi(cfg) {
       const b = writeBatch(db);
       b.delete(doc(db, "events", eid, "contacts", uid));
       b.delete(doc(db, "events", eid, "optins", uid));
+      b.delete(doc(db, "events", eid, "prefs", uid));
+      b.delete(doc(db, "events", eid, "roster", uid));
       b.delete(doc(db, "events", eid, "profiles", uid));
       await b.commit();
     },
+    // El radar: de la lista de participantes (solo ids), pide cada ficha una a una.
+    // Las reglas solo entregan las fichas compatibles contigo (o con las que tienes match);
+    // las demás se deniegan y no aparecen. Así nadie recibe las preferencias de nadie.
     watchProfiles(eid, cb, onErr) {
-      return onSnapshot(col(eid, "profiles"), s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))), onErr);
+      R.eid = eid; R.cb = cb;
+      return onSnapshot(col(eid, "roster"), s => {
+        const next = s.docs.map(d => d.id);
+        for (const id of Object.keys(R.subs)) if (!next.includes(id)) { R.subs[id]?.(); delete R.subs[id]; delete R.vis[id]; }
+        s.docs.forEach(d => {
+          const t = d.data().updatedAt?.toMillis?.() ?? -1;
+          if (!R.subs[d.id] || R.stamp[d.id] !== t) { R.stamp[d.id] = t; subProfile(d.id); }
+        });
+        R.ids = next; emitRadar();
+      }, onErr);
     },
     watchMySignals(eid, uid, cb, onErr) {
       return onSnapshot(query(col(eid, "signals"), where("from", "==", uid)), s => cb(s.docs.map(d => d.data().to)), onErr);
@@ -383,9 +413,11 @@ function makeDemoApi() {
   const L = { p: [], s: [], m: [], shIn: {}, shOut: {}, pair: [] };
   const emitSh = () => { for (const k in L.shIn) L.shIn[k](igIn[k] || null); for (const k in L.shOut) L.shOut[k](igOut[k] || null); };
   const emitPairs = () => L.pair.forEach(f => f());
-  const pub = ({ message, ...rest }) => { if (S.event?.kind !== "boda") delete rest.side; return rest; };
-  const all = () => (mine ? [pub(mine), ...fakes.map(pub)] : fakes.map(pub));
-  const emit = () => { L.p.forEach(f => f(all())); L.s.forEach(f => f([...sent])); L.m.forEach(f => f([...matches])); };
+  const pub = ({ message, gender, interest, likesMe, group, ...rest }) => { if (S.event?.kind !== "boda") delete rest.side; return rest; };
+  const isMatchedDemo = (id) => matches.some(m => m.members.includes(id));
+  const visible = () => !mine ? [] : [pub(mine), ...fakes.filter(f => compatible(mine, f) || isMatchedDemo(f.id)).map(pub)];
+  const total = () => fakes.length + (mine ? 1 : 0);
+  const emit = () => { L.p.forEach(f => f(visible(), total())); L.s.forEach(f => f([...sent])); L.m.forEach(f => f([...matches])); };
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
   return {
     demo: true,
@@ -413,7 +445,7 @@ function makeDemoApi() {
       const r = IG[to];
       if (r && r[1] === "reply" && !igIn[to]) setTimeout(() => { igIn[to] = r[0]; emitSh(); }, 1800);
     },
-    watchProfiles(e, cb) { L.p.push(cb); cb(all()); return () => {}; },
+    watchProfiles(e, cb) { L.p.push(cb); cb(visible(), total()); return () => {}; },
     watchMySignals(e, u, cb) { L.s.push(cb); cb([...sent]); return () => {}; },
     watchMatches(e, u, cb) { L.m.push(cb); cb([...matches]); return () => {}; },
     async sendSignal(e, u, to) {
@@ -435,6 +467,7 @@ const profileById = (id) => S.profiles.find(p => p.id === id);
 const matchedWith = (id) => S.matches.some(m => otherOf(m) === id);
 const signalsLeft = () => Math.max(0, MAX_SIGNALS - S.sentTo.size);
 const ended = () => !S.event || !S.event.active || S.event.endsAt < Date.now();
+const notYet = () => !!S.event?.opensAt && Date.now() < S.event.opensAt;
 
 /* ─────────────── Utilidades UI ─────────────── */
 let toastT;
@@ -687,6 +720,7 @@ async function boot() {
     if (S.event) applyTheme(S.event.theme);
     if (!S.event) return showError("Este evento no existe", "Revisa que has escaneado el QR correcto.");
     if (ended()) return showEnded();
+    if (notYet()) return showSoon();
     S.me = await S.api.getMyProfile(S.eventId, S.uid);
     if (S.me) startMain(); else { S.view = "welcome"; render(); }
   } catch (e) {
@@ -696,13 +730,18 @@ async function boot() {
 }
 function showError(title, text) { S.view = "error"; S.errorMsg = { title, text }; render(); }
 function showEnded() { stopCam(); S.view = "ended"; render(); }
+// El evento aún no ha empezado: se avisa y la página entra sola cuando llega la hora.
+function showSoon() {
+  S.view = "soon"; render();
+  const t = setInterval(() => { if (!notYet()) { clearInterval(t); location.reload(); } }, 20000);
+}
 
 function startMain() {
   S.view = "main";
   if (!S.watching) {
     S.watching = true;
     const onErr = (e) => { console.error(e); if (String(e?.code).includes("permission")) showEnded(); };
-    S.api.watchProfiles(S.eventId, list => { S.profiles = list; if (S.view === "main") render(); checkNewMatches(); }, onErr);
+    S.api.watchProfiles(S.eventId, (list, total) => { S.profiles = list; S.rosterCount = total || 0; if (S.view === "main") render(); checkNewMatches(); }, onErr);
     S.api.watchMySignals(S.eventId, S.uid, tos => { S.sentTo = new Set(tos); if (S.view === "main") render(); }, onErr);
     S.api.watchMatches(S.eventId, S.uid, ms => { S.matches = ms; if (S.view === "main") render(); checkNewMatches(); ensureContacts(false); syncPartners(); }, onErr);
     setInterval(() => { if (S.view === "main" && ended()) showEnded(); }, 30000);
@@ -754,6 +793,11 @@ function render() {
     app.innerHTML = `<div class="empty"><div class="big">🌙</div><h2>Se acabó la fiesta</h2><p>El radar de <b>${esc(S.event?.name || "este evento")}</b> está cerrado. Todas las fichas se borran al terminar.</p><p>Si alguien te ha caído bien… ya sabes lo que hay que hacer.</p></div>`;
     $(".tabs")?.remove(); return;
   }
+  if (S.view === "soon") {
+    const day = new Date(S.event.opensAt).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" }).replace(",", "");
+    app.innerHTML = `<div class="empty">${deco()}<div class="big">⏳</div><h2>Todavía no ha empezado</h2><p>El radar de <b>${esc(S.event.name)}</b> se abre el <b>${esc(day)}</b>.</p><p>Guarda este enlace o vuelve a escanear el QR ese día.</p></div>`;
+    return;
+  }
   if (S.view === "welcome") return renderWelcome(app, demo);
   if (S.view === "form") return renderForm(app, demo);
   if (S.view === "main") return renderMain(app, demo);
@@ -770,7 +814,7 @@ function renderWelcome(app, demo) {
       <li><b class="n">2</b><div>Mira quién está en el radar y manda hasta <b>${MAX_SIGNALS} guiños</b>.</div></li>
       <li><b class="n">3</b><div>Si es mutuo, os avisamos y veréis el mensaje del otro. El resto, en persona: a buscarse por la fiesta.</div></li>
     </ul>
-    <p class="small muted">🔒 Todo se borra cuando termina el evento. Solo para mayores de 18.</p>
+    <p class="small muted">🔒 Todo se borra cuando termina el evento. Solo para mayores de 18. <a href="privacidad.html" target="_blank" rel="noopener" style="color:inherit">Privacidad y condiciones</a></p>
     <button class="btn block" id="go">Entrar</button></div>`;
   $("#go").onclick = () => { S.editing = false; S.selfie = null; S.view = "form"; render(); };
 }
@@ -798,6 +842,7 @@ function renderForm(app, demo) {
 
     <label class="f">Me interesan</label>
     ${seg("interest", [["mujeres", "Mujeres"], ["hombres", "Hombres"], ["todos", "Todo el mundo"]], me?.interest)}
+    <p class="small muted">🔒 Esto es privado: no lo ve nadie, solo sirve para enseñarte a gente compatible.</p>
 
     ${hasSides() ? `<label class="f">Vengo de parte de</label>
     ${seg("side", [["a", esc(S.event.sides[0])], ["b", esc(S.event.sides[1])], ["ambos", "De los dos"]], me?.side)}
@@ -809,7 +854,7 @@ function renderForm(app, demo) {
 
 
     ${S.event.groups ? `<label class="check"><input type="checkbox" id="grp" ${me?.group ? "checked" : ""}><span>Me apunto a <b>match de grupo</b> <button type="button" class="info" data-info="grp" aria-label="Qué es el match de grupo">i</button></span></label>` : ""}
-    ${S.editing ? "" : `<label class="check"><input type="checkbox" id="adult"><span>Tengo 18 años o más y acepto aparecer en el radar de este evento. Mi ficha se borrará al terminar.</span></label>`}
+    ${S.editing ? "" : `<label class="check"><input type="checkbox" id="adult"><span>Tengo 18 años o más, acepto las <a href="privacidad.html" target="_blank" rel="noopener">condiciones y la política de privacidad</a> y <b>consiento expresamente</b> que se use mi género y a quién busco para enseñarme solo a personas compatibles. Todo se borra al terminar el evento.</span></label>`}
     <div class="err" id="err"></div>
     <button class="btn block" id="save">${S.editing ? "Guardar cambios" : "Entrar al radar"}</button>
     ${S.editing ? `<button class="btn ghost block" id="cancel" style="margin-top:10px">Cancelar</button>` : ""}`;
@@ -909,8 +954,8 @@ async function saveForm() {
 /* ── Pantalla principal ── */
 function renderMain(app, demo) {
   const me = S.me;
-  const others = S.profiles.filter(p => p.id !== S.uid).length;
-  const visible = S.profiles.filter(p => p.id !== S.uid && compatible(me, p)).sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const others = Math.max(0, (S.rosterCount || 0) - 1);
+  const visible = S.profiles.filter(p => p.id !== S.uid).sort((a, b) => a.name.localeCompare(b.name, "es"));
   const nMatches = S.matches.length;
   let body = "";
 
@@ -959,7 +1004,7 @@ function renderMain(app, demo) {
       </div>
       <button class="btn ghost block" id="edit">Editar ficha</button>
       <button class="btn ghost block" id="del" style="margin-top:10px;color:#B3261E">Salir y borrar mi ficha</button>
-      <p class="small muted center" style="margin-top:16px">Tu ficha y tus guiños se borran al terminar el evento.</p>`;
+      <p class="small muted center" style="margin-top:16px">Tu ficha y tus guiños se borran al terminar el evento. · <a href="privacidad.html" target="_blank" rel="noopener" style="color:inherit">Privacidad y condiciones</a></p>`;
   }
 
   app.innerHTML = `${demo}
