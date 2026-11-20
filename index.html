@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="boda">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -7,85 +7,198 @@
 <title>Guiño guiño</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E😉%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Great+Vibes&family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg:#FBF6EF; --card:#FFFFFF; --ink:#2B2320; --soft:#7A6E68; --line:#EADFD3;
-    --accent:#D9573F; --accent-ink:#FFFFFF; --accent-soft:#FBE3DC; --ok:#2F6B57; --ok-soft:#DCEFE6;
-    --radius:18px; --shadow:0 6px 24px rgba(60,35,20,.08);
+  /* ════ DISEÑOS ════
+     boda → "Elegante": papelería de invitación. Marfil, verde salvia, oro fino, letra caligráfica.
+     neon → "Neón": cartel de concierto / club. Fondo noche, rosa, lima y azul eléctrico,
+            titulares condensados en mayúsculas, cinta de texto en movimiento. */
+  html[data-theme=boda]{
+    --bg:#F6F1E7; --card:#FFFDF8; --field:#FFFFFF; --ink:#26342B; --soft:#6E786F; --line:#E2D7C2;
+    --accent:#3E5C48; --accent-ink:#FBF7EF; --accent-soft:#E6ECE2; --gold:#B39257;
+    --ok:#3E5C48; --ok-soft:#EDF1E8; --err:#B3261E;
+    --f-display:"Cormorant Garamond",Georgia,"Times New Roman",serif;
+    --f-brand:"Great Vibes","Cormorant Garamond",Georgia,serif;
+    --f-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --f-ui:var(--f-body);
+    --radius:10px; --border:1px solid var(--line); --shadow:0 10px 30px rgba(38,52,43,.07);
+    color-scheme:light;
   }
-  *{box-sizing:border-box}
-  html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
-  #app{max-width:560px;margin:0 auto;padding:20px 18px calc(110px + env(safe-area-inset-bottom))}
-  h1,h2,.serif{font-family:Georgia,"Times New Roman",serif;font-weight:normal;letter-spacing:-.01em}
-  h1{font-size:2rem;line-height:1.15;margin:.3em 0 .4em}
-  h2{font-size:1.45rem;margin:.2em 0 .6em}
+  html[data-theme=neon]{
+    --bg:#0D0A12; --card:#17121F; --field:#110D18; --ink:#F7F3FF; --soft:#A99FBC; --line:#352B47;
+    --accent:#FF2D95; --accent-ink:#0D0A12; --accent-soft:rgba(255,45,149,.14); --gold:#C8FF2E;
+    --lime:#C8FF2E; --blue:#4F7BFF; --orange:#FF7A1A;
+    --ok:#C8FF2E; --ok-soft:rgba(200,255,46,.10); --err:#FF6B7A;
+    --f-display:"Anton","Impact","Arial Narrow Bold","Helvetica Neue",sans-serif;
+    --f-brand:var(--f-display);
+    --f-body:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --f-ui:var(--f-body);
+    --radius:14px; --border:1px solid var(--line); --shadow:0 12px 36px rgba(0,0,0,.45);
+    color-scheme:dark;
+  }
+
+  *{box-sizing:border-box;min-width:0}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--f-body);-webkit-font-smoothing:antialiased;overflow-x:clip}
+  #app{max-width:560px;margin:0 auto;padding:12px 18px calc(110px + env(safe-area-inset-bottom))}
+  h1,h2,.serif{font-family:var(--f-display);font-weight:600;letter-spacing:-.005em}
+  h1{font-size:2.3rem;line-height:1.08;margin:.25em 0 .4em}
+  h2{font-size:1.6rem;line-height:1.15;margin:.2em 0 .6em}
+  [data-theme=neon] h1,[data-theme=neon] h2,[data-theme=neon] .serif{font-weight:400;text-transform:uppercase;letter-spacing:.01em}
+  [data-theme=neon] h1{font-size:clamp(2.6rem,12vw,3.6rem);line-height:.95}
+  [data-theme=neon] h1 .out{display:block;color:transparent;-webkit-text-stroke:1.5px var(--ink)}
+  [data-theme=neon] h2{font-size:1.75rem;line-height:1.1}
   p{margin:.4em 0 .9em}
-  .muted{color:var(--soft)}
-  .small{font-size:.86rem}
-  .center{text-align:center}
-  .brand{font-family:Georgia,serif;font-size:1rem;color:var(--accent);letter-spacing:.08em;text-transform:uppercase}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin:14px 0}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4em;border:0;border-radius:999px;padding:.85em 1.4em;font:inherit;font-weight:600;cursor:pointer;background:var(--accent);color:var(--accent-ink);text-decoration:none;transition:transform .08s,opacity .2s}
+  .muted{color:var(--soft)} .small{font-size:.86rem} .center{text-align:center}
+  b,strong{font-weight:700}
+
+  /* marca y nombre del evento */
+  .brand{font-family:var(--f-brand);color:var(--gold);font-size:1.9rem;line-height:1.1;display:inline-block}
+  .brand.sm{font-size:1.45rem}
+  [data-theme=neon] .brand{font-size:1rem;letter-spacing:.14em;text-transform:uppercase;color:var(--lime)}
+  [data-theme=neon] .brand.sm{font-size:.9rem}
+  .evname{font-family:var(--f-display);font-size:1.25rem;line-height:1.2;margin-top:2px}
+  [data-theme=boda] .evname{font-style:italic}
+  [data-theme=neon] .evname{font-family:var(--f-body);font-weight:600;font-size:1rem;color:var(--soft);margin-top:4px}
+  .head{text-align:center}
+  [data-theme=neon] .head{text-align:left}
+
+  /* decoración: ramita (boda) / cinta en movimiento (neón) */
+  .deco{display:block;margin:4px auto 6px}
+  .deco.sprig{width:220px;height:auto}
+  .modal .deco.sprig{width:180px}
+  .ticker{overflow:hidden;background:var(--lime);color:#0D0A12;margin:-12px -18px 14px;transform:rotate(-1.5deg) scale(1.03);border-block:2px solid #0D0A12}
+  .ticker .track{display:inline-flex;white-space:nowrap;font:400 1rem/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;padding:.55em 0;animation:tick 18s linear infinite}
+  .ticker .track span{padding:0 .6em}
+  .ticker .track i{font-style:normal;color:var(--accent)}
+  .modal .ticker{margin:-24px -20px 16px;transform:none;border-radius:14px 14px 0 0;border-top:0}
+  @keyframes tick{to{transform:translateX(-50%)}}
+
+  .card{background:var(--card);border:var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin:14px 0}
+  [data-theme=boda] .card{outline:1px solid var(--line);outline-offset:-7px}
+
+  /* botones */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4em;border:0;border-radius:999px;padding:.85em 1.4em;font:600 1rem var(--f-ui);cursor:pointer;background:var(--accent);color:var(--accent-ink);text-decoration:none;transition:transform .08s,opacity .2s,box-shadow .2s;min-height:44px}
+  [data-theme=boda] .btn{letter-spacing:.04em}
+  [data-theme=neon] .btn{border-radius:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:.92rem;box-shadow:0 0 0 0 rgba(255,45,149,0)}
+  [data-theme=neon] .btn:not(.ghost):not(.soft):not(.okb):not([disabled]):hover{box-shadow:0 0 24px rgba(255,45,149,.45)}
   .btn:active{transform:scale(.97)}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
   .btn[disabled]{opacity:.45;cursor:default}
   .btn.block{display:flex;width:100%}
   .btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+  [data-theme=boda] .btn.ghost{border-color:var(--gold)}
   .btn.soft{background:var(--accent-soft);color:var(--accent)}
   .btn.okb{background:var(--ok-soft);color:var(--ok)}
-  .btn.small{padding:.55em 1em;font-size:.88rem}
+  [data-theme=neon] .btn.okb{border:1.5px solid var(--lime)}
+  .btn.small{padding:.55em 1em;font-size:.9rem}
+  [data-theme=neon] .btn.small{font-size:.8rem}
+
+  /* bienvenida */
   .steps{list-style:none;padding:0;margin:18px 0}
   .steps li{display:flex;gap:12px;align-items:flex-start;margin:12px 0}
-  .steps b.n{flex:none;width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:.9rem}
-  label.f{display:block;font-weight:600;margin:16px 0 6px}
-  input[type=text],input[type=tel],textarea{width:100%;font:inherit;padding:.75em .9em;border:1.5px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
+  .steps b.n{flex:none;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:600 .95rem var(--f-display)}
+  [data-theme=boda] .steps b.n{border:1px solid var(--gold);color:var(--gold);font-size:1.1rem}
+  [data-theme=neon] .steps b.n{border-radius:8px;font:400 1.05rem var(--f-display);color:#0D0A12}
+  [data-theme=neon] .steps li:nth-child(1) b.n{background:var(--lime)}
+  [data-theme=neon] .steps li:nth-child(2) b.n{background:var(--blue);color:#fff}
+  [data-theme=neon] .steps li:nth-child(3) b.n{background:var(--accent)}
+  .lead{font-size:1.05rem}
+  [data-theme=boda] .welcome{text-align:center}
+  [data-theme=boda] .welcome .steps{text-align:left;max-width:420px;margin-left:auto;margin-right:auto}
+
+  /* formulario */
+  label.f{display:block;font-weight:600;margin:18px 0 6px}
+  [data-theme=neon] label.f{font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--soft)}
+  input[type=text],textarea{width:100%;font:inherit;font-size:16px;padding:.75em .9em;border:1.5px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink)}
   textarea{resize:vertical;min-height:84px}
-  input[type=text]:focus,input[type=tel]:focus,textarea:focus{outline:none;border-color:var(--accent)}
+  input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  ::placeholder{color:var(--soft);opacity:.8}
   .seg{display:flex;flex-wrap:wrap;gap:8px}
   .seg input{position:absolute;opacity:0;pointer-events:none}
-  .seg label{padding:.55em 1em;border:1.5px solid var(--line);border-radius:999px;cursor:pointer;background:#fff;font-size:.95rem}
+  .seg label{padding:.55em 1em;border:1.5px solid var(--line);border-radius:999px;cursor:pointer;background:var(--field);font-size:.95rem;min-height:40px;display:inline-flex;align-items:center}
   .seg input:checked+label{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+  [data-theme=neon] .seg label{border-radius:10px}
+  [data-theme=neon] .seg input:checked+label{background:var(--lime);border-color:var(--lime);color:#0D0A12;font-weight:700}
+  .seg input:focus-visible+label{outline:2px solid var(--accent);outline-offset:2px}
   .check{display:flex;gap:10px;align-items:flex-start;margin:18px 0;font-size:.92rem}
   .check input{width:20px;height:20px;margin-top:2px;accent-color:var(--accent);flex:none}
-  .selfie{position:relative;width:210px;height:210px;margin:6px auto 12px;border-radius:50%;overflow:hidden;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:var(--shadow)}
+  .selfie{position:relative;width:210px;height:210px;margin:6px auto 12px;border-radius:50%;overflow:hidden;background:var(--accent-soft);display:flex;align-items:center;justify-content:center}
+  [data-theme=boda] .selfie{border:4px solid var(--card);box-shadow:0 0 0 1px var(--gold),var(--shadow)}
+  [data-theme=neon] .selfie{border:4px solid var(--bg);box-shadow:0 0 0 3px var(--accent),0 0 40px rgba(255,45,149,.35)}
   .selfie video,.selfie img{width:100%;height:100%;object-fit:cover}
   .selfie video{transform:scaleX(-1)}
-  .selfie .ph{font-size:3.2rem;opacity:.5}
+  .selfie .ph{font-size:3.2rem;opacity:.55}
   .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-  .err{color:#B3261E;font-size:.9rem;min-height:1.2em;margin-top:10px}
-  .topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
-  .pill{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:.3em .8em;font-size:.82rem;font-weight:600;white-space:nowrap}
-  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
-  .person{background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
+  .err{color:var(--err);font-size:.9rem;min-height:1.2em;margin-top:10px}
+
+  /* pantalla principal */
+  .topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px}
+  .pill{display:inline-block;border-radius:999px;padding:.35em .85em;font:600 .85rem var(--f-ui);white-space:nowrap}
+  [data-theme=boda] .pill{border:1px solid var(--gold);color:var(--accent);background:var(--card)}
+  [data-theme=neon] .pill{background:var(--lime);color:#0D0A12;border-radius:8px;font-weight:700}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+  .person{background:var(--card);border:var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
+  [data-theme=boda] .person{padding:6px 6px 0}
+  [data-theme=boda] .person img{border-radius:6px}
   .person img{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:var(--accent-soft)}
-  .person .body{padding:10px 10px 12px;display:flex;flex-direction:column;gap:8px;flex:1}
-  .person .name{font-weight:700;font-size:1.02rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  [data-theme=neon] .person img{aspect-ratio:4/5}
+  .person .body{padding:10px 10px 12px;display:flex;flex-direction:column;gap:6px;flex:1}
+  .person .name{font:600 1.1rem var(--f-display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  [data-theme=boda] .person .name{text-align:center;font-size:1.25rem}
+  [data-theme=neon] .person .name{font-weight:400;text-transform:uppercase;font-size:1.3rem;letter-spacing:.02em}
+  .person .side{font-size:.78rem;color:var(--soft);margin-top:-4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  [data-theme=boda] .person .side{text-align:center;font-style:italic;font-family:var(--f-display);font-size:.95rem}
   .person .btn{width:100%;margin-top:auto}
-  .person.matched{border-color:var(--ok)}
+  .person.matched{outline:2px solid var(--ok);outline-offset:-2px}
+  [data-theme=neon] .person.matched{box-shadow:0 0 24px rgba(200,255,46,.25)}
   .empty{text-align:center;padding:34px 16px;color:var(--soft)}
   .empty .big{font-size:2.6rem}
-  .tabs{position:fixed;left:0;right:0;bottom:0;background:rgba(251,246,239,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);display:flex;justify-content:center;padding:8px 8px calc(8px + env(safe-area-inset-bottom));z-index:5}
+
+  .tabs{position:fixed;left:0;right:0;bottom:0;background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--line);display:flex;justify-content:center;padding:8px 8px calc(8px + env(safe-area-inset-bottom));z-index:5}
   .tabs .in{display:flex;max-width:560px;width:100%}
-  .tabs button{flex:1;border:0;background:none;font:inherit;font-size:.82rem;color:var(--soft);padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;position:relative}
+  .tabs button{flex:1;border:0;background:none;font:500 .82rem var(--f-ui);color:var(--soft);padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;position:relative;min-height:44px}
   .tabs button .ic{font-size:1.35rem}
   .tabs button.on{color:var(--accent);font-weight:700}
-  .tabs .badge{position:absolute;top:0;left:calc(50% + 8px);background:var(--accent);color:#fff;border-radius:999px;font-size:.7rem;padding:1px 6px;font-weight:700}
+  .tabs .badge{position:absolute;top:0;left:calc(50% + 8px);background:var(--accent);color:var(--accent-ink);border-radius:999px;font-size:.7rem;padding:1px 6px;font-weight:700}
   .mrow{display:flex;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
   .mrow:last-child{border-bottom:0}
   .mrow img{width:84px;height:84px;border-radius:50%;object-fit:cover;flex:none;background:var(--accent-soft)}
-  .hint{background:var(--ok-soft);color:var(--ok);border-radius:12px;padding:.5em .8em;font-size:.92rem;margin-top:4px}
-  .overlay{position:fixed;inset:0;background:rgba(43,35,32,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20;animation:fade .2s}
-  .modal{background:var(--bg);border-radius:24px;padding:24px 20px;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:pop .25s}
-  .pair{display:flex;justify-content:center;margin:10px 0 14px}
-  .pair img{width:104px;height:104px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:var(--shadow)}
-  .pair{align-items:center}
+  [data-theme=boda] .mrow img{box-shadow:0 0 0 1px var(--gold);border:3px solid var(--card)}
+  [data-theme=neon] .mrow img{box-shadow:0 0 0 2px var(--accent)}
+  .hint{background:var(--ok-soft);color:var(--ok);border-radius:12px;padding:.55em .85em;font-size:.95rem;margin-top:4px}
+  [data-theme=boda] .hint{font-family:var(--f-display);font-size:1.12rem;background:transparent;border-top:1px solid var(--line);border-bottom:1px solid var(--line);border-radius:0}
+  [data-theme=neon] .hint{color:var(--ink);background:transparent;border-left:3px solid var(--lime);border-radius:0;padding:.3em .9em}
+  .sidetag{display:inline-block;font-size:.82rem;color:var(--soft);margin:2px 0 6px}
+  [data-theme=boda] .sidetag{font-family:var(--f-display);font-style:italic;font-size:1rem}
+  [data-theme=neon] .sidetag{color:var(--lime);font-weight:600;letter-spacing:.02em}
+
+  /* ventanas */
+  .overlay{position:fixed;inset:0;background:rgba(20,15,20,.6);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20;animation:fade .2s}
+  [data-theme=neon] .overlay{background:rgba(5,3,8,.78)}
+  .modal{background:var(--bg);border-radius:24px;padding:24px 20px;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:pop .25s;overflow:hidden}
+  [data-theme=boda] .modal{border-radius:12px;outline:1px solid var(--gold);outline-offset:-10px;padding:30px 26px}
+  [data-theme=neon] .modal{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 0 0 1px rgba(255,45,149,.35),0 0 60px rgba(255,45,149,.25)}
+  .pair{display:flex;justify-content:center;align-items:center;margin:10px 0 14px}
+  .pair img{width:104px;height:104px;border-radius:50%;object-fit:cover;border:4px solid var(--card);box-shadow:var(--shadow)}
+  [data-theme=neon] .pair img{border-color:var(--card);box-shadow:0 0 0 2px var(--accent)}
+  [data-theme=neon] .pair img+img{box-shadow:0 0 0 2px var(--lime),0 0 30px rgba(200,255,46,.3)}
   .pair img+img{margin-left:-18px;width:148px;height:148px}
   .person img,.mrow img,.pair img{cursor:zoom-in}
   @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
   @keyframes fade{from{opacity:0}}
-  #toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:.7em 1.1em;border-radius:14px;font-size:.92rem;max-width:90vw;text-align:center;opacity:0;pointer-events:none;transition:opacity .25s;z-index:30}
+  @media (prefers-reduced-motion:reduce){.overlay,.modal{animation:none}.ticker .track{animation:none}}
+  #toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:.7em 1.1em;border-radius:14px;font-size:.92rem;max-width:90vw;text-align:center;opacity:0;pointer-events:none;transition:opacity .25s;z-index:30}
   #toast.on{opacity:1}
-  .demo{background:#FFF3C9;color:#6B5200;border-radius:12px;padding:.55em .9em;font-size:.84rem;margin-bottom:12px;text-align:center}
-  .spin{width:34px;height:34px;border:3px solid var(--accent-soft);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite;margin:80px auto}
+
+  /* aviso de demo con selectores */
+  .demo{background:#FFF3C9;color:#5C4700;border-radius:12px;padding:.55em .8em;font-size:.82rem;margin:4px 0 14px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:center;text-align:center}
+  .demo .pick{display:inline-flex;border:1.5px solid #D9C27A;border-radius:999px;overflow:hidden}
+  .demo .pick button{border:0;background:transparent;font:600 .8rem -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:.35em .8em;cursor:pointer;color:#5C4700;min-height:32px}
+  .demo .pick button.on{background:#5C4700;color:#FFF3C9}
+  .demo .lbl{font-weight:600}
+  .spin{width:34px;height:34px;border:3px solid var(--accent-soft);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite;margin:80px auto}
   @keyframes sp{to{transform:rotate(360deg)}}
 </style>
 </head>
@@ -144,7 +257,7 @@ async function makeFirebaseApi(cfg) {
       const snap = await getDoc(doc(db, "events", eid));
       if (!snap.exists()) return null;
       const d = snap.data();
-      return { name: d.name, active: d.active !== false, endsAt: d.endsAt?.toMillis?.() ?? 0 };
+      return normEvent({ name: d.name, active: d.active !== false, endsAt: d.endsAt?.toMillis?.() ?? 0, theme: d.theme, kind: d.kind, sides: d.sides });
     },
     async getMyProfile(eid, uid) {
       try {
@@ -209,29 +322,34 @@ function avatar(name, bg) {
 function makeDemoApi() {
   const uid = "yo";
   const raw = [
-    ["Lucía", "mujer", "hombres", "Bailo fatal pero con muchas ganas. Cuéntame tu peor anécdota de boda 😄", true, "#C9806B"],
-    ["Marta", "mujer", "todos", "Me gusta que me hablen sin prisa y con humor.", false, "#8C6FA8"],
-    ["Carmen", "mujer", "hombres", "Invítame a una caña y cuéntame qué haces cuando no estás en una boda.", true, "#B5654C"],
-    ["Elena", "mujer", "mujeres", "Si sabes bailar bachata, ya me caes bien.", true, "#6F8FA8"],
-    ["Paula", "mujer", "todos", "Soy la del mono negro. Sorpréndeme.", false, "#A88F6F"],
-    ["Javi", "hombre", "mujeres", "Soy el de la corbata amarilla. ¿Echamos un baile?", true, "#5E8C77"],
-    ["Rubén", "hombre", "todos", "Nada de frases hechas: dime algo que te haga reír.", false, "#7C7A9E"],
-    ["Dani", "hombre", "hombres", "Pajarita azul y ganas de fiesta.", true, "#9E7A7C"],
-    ["Sergio", "hombre", "mujeres", "Me gusta el vermú y las conversaciones largas.", false, "#6B8E9E"],
-    ["Alex", "otro", "todos", "Chaleco de flores. Pregúntame por qué.", true, "#A06F95"]
+    ["Lucía", "mujer", "hombres", "Bailo fatal pero con muchas ganas. Cuéntame tu mejor anécdota 😄", true, "#C9806B", "a"],
+    ["Marta", "mujer", "todos", "Me gusta que me hablen sin prisa y con humor.", false, "#8C6FA8", "b"],
+    ["Carmen", "mujer", "hombres", "Invítame a una caña y cuéntame qué haces cuando no estás de fiesta.", true, "#B5654C", "ambos"],
+    ["Elena", "mujer", "mujeres", "Si sabes bailar bachata, ya me caes bien.", true, "#6F8FA8", "b"],
+    ["Paula", "mujer", "todos", "Soy la del mono negro. Sorpréndeme.", false, "#A88F6F", "a"],
+    ["Javi", "hombre", "mujeres", "Soy el de la corbata amarilla. ¿Echamos un baile?", true, "#5E8C77", "b"],
+    ["Rubén", "hombre", "todos", "Nada de frases hechas: dime algo que te haga reír.", false, "#7C7A9E", "a"],
+    ["Dani", "hombre", "hombres", "Pajarita azul y ganas de fiesta.", true, "#9E7A7C", "ambos"],
+    ["Sergio", "hombre", "mujeres", "Me gusta el vermú y las conversaciones largas.", false, "#6B8E9E", "a"],
+    ["Alex", "otro", "todos", "Chaleco de flores. Pregúntame por qué.", true, "#A06F95", "b"]
   ];
-  const fakes = raw.map(([name, gender, interest, message, likesMe, c], i) =>
-    ({ id: "f" + i, name, gender, interest, message, selfie: avatar(name, c), likesMe }));
+  const fakes = raw.map(([name, gender, interest, message, likesMe, c, side], i) =>
+    ({ id: "f" + i, name, gender, interest, message, side, selfie: avatar(name, c), likesMe }));
   let mine = null; const sent = new Set(); let matches = [];
   const L = { p: [], s: [], m: [] };
-  const pub = ({ message, ...rest }) => rest;
+  const pub = ({ message, ...rest }) => { if (S.event?.kind !== "boda") delete rest.side; return rest; };
   const all = () => (mine ? [pub(mine), ...fakes.map(pub)] : fakes.map(pub));
   const emit = () => { L.p.forEach(f => f(all())); L.s.forEach(f => f([...sent])); L.m.forEach(f => f([...matches])); };
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
   return {
     demo: true,
     async signIn() { return uid; },
-    async getEvent() { return { name: "Boda de Ana y Luis (demo)", active: true, endsAt: Date.now() + 6 * 3600e3 }; },
+    async getEvent() {
+      const { kind, theme } = demoPrefs();
+      return normEvent(kind === "boda"
+        ? { name: "Boda de Ana y Luis", kind, sides: ["Ana", "Luis"], theme, active: true, endsAt: Date.now() + 6 * 3600e3 }
+        : { name: "Fiesta de fin de año", kind, theme, active: true, endsAt: Date.now() + 6 * 3600e3 });
+    },
     async getMyProfile() { return mine; },
     async getContact(e, id) { const f = fakes.find(x => x.id === id); return f ? { message: f.message } : null; },
     async saveProfile(e, u, d) { await wait(300); mine = { id: uid, ...d }; emit(); },
@@ -271,6 +389,55 @@ function ask(html, okLabel = "Sí", cancelLabel = "Cancelar") {
 function seenSet() { try { return new Set(JSON.parse(localStorage.getItem(S.seenKey) || "[]")); } catch { return new Set(); } }
 function markSeen(id) { try { const s = seenSet(); s.add(id); localStorage.setItem(S.seenKey, JSON.stringify([...s])); } catch {} }
 
+/* ─────────────── Tipo de evento y diseño ─────────────── */
+// Tipo (kind): "boda" (con "Vengo de parte de") o "fiesta" (genérico).
+// Diseño (theme): "boda" = Elegante, "neon" = Neón. ("fiesta" antiguo → neón)
+const THEMES = { boda: "#F6F1E7", neon: "#0D0A12" };
+const normTheme = (t) => (t === "neon" || t === "fiesta") ? "neon" : "boda";
+function normEvent(e) {
+  const kind = e.kind === "fiesta" ? "fiesta" : "boda";
+  const sides = kind === "boda" && Array.isArray(e.sides) && e.sides.length === 2 && e.sides.every(x => typeof x === "string" && x.trim())
+    ? e.sides.map(x => x.trim().slice(0, 24)) : null;
+  return { ...e, kind, sides, theme: normTheme(e.theme) };
+}
+function demoPrefs() {
+  const tokens = location.hash.replace("#", "").split("-");
+  let saved = {}; try { saved = JSON.parse(localStorage.getItem("guino-demo") || "{}"); } catch {}
+  const kind = tokens.includes("fiesta") ? "fiesta" : tokens.includes("boda") ? "boda" : (saved.kind === "fiesta" ? "fiesta" : "boda");
+  const theme = tokens.includes("neon") ? "neon" : tokens.includes("elegante") ? "boda" : normTheme(saved.theme);
+  return { kind, theme };
+}
+function applyTheme(t) {
+  t = normTheme(t);
+  document.documentElement.dataset.theme = t;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEMES[t]);
+}
+const theme = () => document.documentElement.dataset.theme || "boda";
+const isBoda = () => S.event?.kind === "boda";
+const hasSides = () => isBoda() && !!S.event?.sides;
+// "a" → "De parte de Ana", "ambos" → "De parte de los dos"
+function sideLabel(side, short) {
+  if (!hasSides() || !side) return "";
+  const [A, B] = S.event.sides;
+  const who = side === "a" ? A : side === "b" ? B : "los dos";
+  return short ? `De parte de ${who}` : `Viene de parte de ${who}`;
+}
+
+// Ramita de olivo con hilo dorado (Elegante) o cinta de texto en movimiento (Neón)
+function deco() {
+  if (theme() === "neon") {
+    const unit = `<span>${esc(APP_NAME)}</span><i>●</i><span>${isBoda() ? "Solteros de la boda" : "Solteros de la fiesta"}</span><i>●</i>`;
+    return `<div class="ticker" aria-hidden="true"><div class="track">${unit.repeat(8)}${unit.repeat(8)}</div></div>`;
+  }
+  let leaves = "";
+  for (let i = 0; i < 5; i++) {
+    const d = 14 + i * 9, up = i % 2 ? -1 : 1;
+    leaves += `<ellipse cx="${120 - d}" cy="${18 + up * 4}" rx="5" ry="2" transform="rotate(${up * -28} ${120 - d} ${18 + up * 4})"/>`;
+    leaves += `<ellipse cx="${120 + d}" cy="${18 + up * 4}" rx="5" ry="2" transform="rotate(${up * 28} ${120 + d} ${18 + up * 4})"/>`;
+  }
+  return `<svg class="deco sprig" viewBox="0 0 240 36" aria-hidden="true"><path d="M8 18H62M178 18H232" stroke="var(--gold)" stroke-width=".8"/><path d="M64 18H176" stroke="var(--accent)" stroke-width=".9" opacity=".6"/><g fill="var(--accent)" opacity=".75">${leaves}</g><circle cx="120" cy="18" r="2.6" fill="var(--gold)"/></svg>`;
+}
+
 /* ─────────────── Mensaje para los matches ─────────────── */
 async function getContact(id, force) {
   if (!force && S.contacts[id]) return S.contacts[id];
@@ -305,6 +472,18 @@ document.addEventListener("click", (e) => {
   document.body.appendChild(o);
 });
 
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-pick-kind],[data-pick-theme]"); if (!b || !DEMO) return;
+  const cur = demoPrefs();
+  const next = { kind: b.dataset.pickKind || cur.kind, theme: b.dataset.pickTheme || cur.theme };
+  try { localStorage.setItem("guino-demo", JSON.stringify(next)); } catch {}
+  history.replaceState(null, "", "#" + next.kind + "-" + (next.theme === "neon" ? "neon" : "elegante"));
+  S.event = await S.api.getEvent(S.eventId);
+  applyTheme(S.event.theme);
+  if (S.me && S.view === "main") S.me = await S.api.getMyProfile(S.eventId, S.uid);
+  render();
+});
+
 /* ─────────────── Arranque ─────────────── */
 async function boot() {
   try {
@@ -314,6 +493,7 @@ async function boot() {
     S.api = DEMO ? makeDemoApi() : await makeFirebaseApi(CFG.firebaseConfig);
     S.uid = await S.api.signIn();
     S.event = await S.api.getEvent(S.eventId);
+    if (S.event) applyTheme(S.event.theme);
     if (!S.event) return showError("Este evento no existe", "Revisa que has escaneado el QR correcto.");
     if (ended()) return showEnded();
     S.me = await S.api.getMyProfile(S.eventId, S.uid);
@@ -356,9 +536,10 @@ async function showMatch(p) {
   const c = await getContact(p.id);
   const o = document.createElement("div"); o.className = "overlay match";
   o.innerHTML = `<div class="modal">
-    <div class="brand">Guiño guiño 😉</div>
+    ${deco()}<div class="brand">${esc(APP_NAME)} 😉</div>
     <div class="pair"><img src="${safeImg(S.me?.selfie)}" alt=""><img src="${safeImg(p.selfie)}" alt=""></div>
     <h2 class="serif">${esc(p.name)} te ha devuelto el guiño</h2>
+    ${p.side && hasSides() ? `<div class="sidetag">${esc(sideLabel(p.side))}</div>` : ""}
     ${contactBlock(p, c)}
     <button class="btn block" style="margin-top:20px">¡Voy!</button></div>`;
   o.querySelector("button").onclick = () => { o.remove(); S.matchBusy = false; checkNewMatches(); };
@@ -368,7 +549,9 @@ async function showMatch(p) {
 /* ─────────────── Vistas ─────────────── */
 function render() {
   const app = $("#app");
-  const demo = DEMO ? `<div class="demo">Modo demo: la gente es de mentira y nada se guarda.</div>` : "";
+  const demo = DEMO ? `<div class="demo"><span>Modo demo: gente de mentira, nada se guarda.</span>
+    <span class="lbl">Evento</span><span class="pick" role="group" aria-label="Tipo de evento"><button data-pick-kind="boda" class="${isBoda() ? "on" : ""}">Boda</button><button data-pick-kind="fiesta" class="${!isBoda() ? "on" : ""}">Fiesta</button></span>
+    <span class="lbl">Diseño</span><span class="pick" role="group" aria-label="Diseño"><button data-pick-theme="boda" class="${theme() === "boda" ? "on" : ""}">Elegante</button><button data-pick-theme="neon" class="${theme() === "neon" ? "on" : ""}">Neón</button></span></div>` : "";
   if (S.view === "loading") { app.innerHTML = `<div class="spin"></div>`; return; }
   if (S.view === "error") {
     app.innerHTML = `<div class="empty"><div class="big">🔍</div><h2>${esc(S.errorMsg.title)}</h2><p>${esc(S.errorMsg.text)}</p></div>`; return;
@@ -383,17 +566,18 @@ function render() {
 }
 
 function renderWelcome(app, demo) {
-  app.innerHTML = `${demo}
-    <div class="brand">${esc(APP_NAME)}</div>
-    <h1>¿Estás soltero o soltera?</h1>
-    <p class="muted">En <b>${esc(S.event.name)}</b> hay más gente como tú. Descubre si alguien de aquí quiere conocerte, sin vergüenzas: nadie sabe que le has guiñado salvo que te guiñe también.</p>
+  app.innerHTML = `${demo}<div class="welcome">
+    ${deco()}
+    <div class="head"><div class="brand">${esc(APP_NAME)}</div><div class="evname">${esc(S.event.name)}</div></div>
+    <h1>¿Estás soltero <span class="out">o soltera?</span></h1>
+    <p class="muted lead">${isBoda() ? "En esta boda" : "En esta fiesta"} hay más gente como tú. Descubre si alguien de aquí quiere conocerte, sin vergüenzas: nadie sabe que le has guiñado salvo que te guiñe también.</p>
     <ul class="steps">
-      <li><b class="n">1</b><div>Hazte un selfie y deja un mensaje para quien haga match contigo.</div></li>
+      <li><b class="n">1</b><div>Hazte un selfie${hasSides() ? ", di de parte de quién vienes" : ""} y deja un mensaje para quien haga match contigo.</div></li>
       <li><b class="n">2</b><div>Mira quién está en el radar y manda hasta <b>${MAX_SIGNALS} guiños</b>.</div></li>
       <li><b class="n">3</b><div>Si es mutuo, os avisamos y veréis el mensaje del otro. El resto, en persona: a buscarse por la fiesta.</div></li>
     </ul>
     <p class="small muted">🔒 Todo se borra cuando termina el evento. Solo para mayores de 18.</p>
-    <button class="btn block" id="go">Entrar</button>`;
+    <button class="btn block" id="go">Entrar</button></div>`;
   $("#go").onclick = () => { S.editing = false; S.selfie = null; S.view = "form"; render(); };
 }
 
@@ -403,8 +587,8 @@ function renderForm(app, demo) {
   const seg = (name, opts, val) => `<div class="seg">${opts.map(([v, l]) =>
     `<input type="radio" name="${name}" id="${name}-${v}" value="${v}" ${val === v ? "checked" : ""}><label for="${name}-${v}">${l}</label>`).join("")}</div>`;
   app.innerHTML = `${demo}
-    <div class="brand">${esc(S.event.name)}</div>
-    <h2>${S.editing ? "Editar tu ficha" : "Tu ficha"}</h2>
+    <div class="head"><div class="brand sm">${esc(APP_NAME)}</div><div class="evname">${esc(S.event.name)}</div></div>
+    <h2 class="center" style="margin-top:.6em">${S.editing ? "Editar tu ficha" : "Tu ficha"}</h2>
     <div class="selfie" id="sbox">${S.selfie ? `<img src="${safeImg(S.selfie)}" alt="Tu selfie">` : `<span class="ph">🤳</span>`}</div>
     <div class="row" id="camrow">
       <button class="btn ${S.selfie ? "ghost" : ""} small" id="cam">${S.selfie ? "Repetir selfie" : "Hacer selfie"}</button>
@@ -420,6 +604,10 @@ function renderForm(app, demo) {
 
     <label class="f">Me interesan</label>
     ${seg("interest", [["mujeres", "Mujeres"], ["hombres", "Hombres"], ["todos", "Todo el mundo"]], me?.interest)}
+
+    ${hasSides() ? `<label class="f">Vengo de parte de</label>
+    ${seg("side", [["a", esc(S.event.sides[0])], ["b", esc(S.event.sides[1])], ["ambos", "De los dos"]], me?.side)}
+    <p class="small muted">Así, si hacéis match, sabréis a quién preguntar por el otro.</p>` : ""}
 
     <label class="f" for="msg">Di algo a quien haga match contigo</label>
     <textarea id="msg" maxlength="140" rows="3" placeholder="Ej.: Bailo fatal pero con ganas. Cuéntame tu peor anécdota de boda 😉">${esc(me?.message || "")}</textarea>
@@ -483,8 +671,11 @@ async function saveForm() {
   if (!name) return err.textContent = "Pon tu nombre.";
   if (!gender || !interest) return err.textContent = "Dinos qué eres y qué te interesa.";
   if (!S.editing && !$("#adult").checked) return err.textContent = "Tienes que confirmar que eres mayor de edad.";
+  const side = $("input[name=side]:checked")?.value;
+  if (hasSides() && !side) return err.textContent = `Dinos de parte de quién vienes (${S.event.sides[0]}, ${S.event.sides[1]} o los dos).`;
   const btn = $("#save"); btn.disabled = true; btn.textContent = "Guardando…";
   const data = { name, gender, interest, selfie: S.selfie, message };
+  if (hasSides()) data.side = side;
   try {
     await S.api.saveProfile(S.eventId, S.uid, data);
     stopCam();
@@ -511,9 +702,9 @@ function renderMain(app, demo) {
     body += visible.length ? `<div class="grid">${visible.map(p => {
       const matched = matchedWith(p.id), sent = S.sentTo.has(p.id);
       const btn = matched ? `<button class="btn okb small" data-match="${esc(p.id)}">💛 Match</button>`
-        : sent ? `<button class="btn soft small" disabled>Guiño enviado</button>`
+        : sent ? `<button class="btn soft small" disabled>Guiñado ✓</button>`
         : `<button class="btn small" data-sig="${esc(p.id)}" ${signalsLeft() ? "" : "disabled"}>${signalsLeft() ? "😉 Guiñar" : "Sin guiños"}</button>`;
-      return `<div class="person ${matched ? "matched" : ""}"><img src="${safeImg(p.selfie)}" alt="" loading="lazy"><div class="body"><div class="name">${esc(p.name)}</div>${btn}</div></div>`;
+      return `<div class="person ${matched ? "matched" : ""}"><img src="${safeImg(p.selfie)}" alt="" loading="lazy"><div class="body"><div class="name">${esc(p.name)}</div>${p.side && hasSides() ? `<div class="side">${esc(sideLabel(p.side, true))}</div>` : ""}${btn}</div></div>`;
     }).join("")}</div>`
       : `<div class="empty"><div class="big">📡</div><p>Todavía no hay nadie en tu radar.<br>Esto se va llenando a medida que la gente escanea el QR.</p></div>`;
   }
@@ -523,7 +714,7 @@ function renderMain(app, demo) {
     body += nMatches ? `<div class="card">${S.matches.map(m => {
       const p = profileById(otherOf(m));
       const c = S.contacts[m.members.find(x => x !== S.uid)];
-      return p ? `<div class="mrow"><img src="${safeImg(p.selfie)}" alt=""><div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-start"><b>${esc(p.name)}</b>${c?.message ? `<div class="hint" style="font-style:italic;margin:0">“${esc(c.message)}”</div>` : `<span class="muted small">No ha dejado mensaje: ¡a buscarle por la fiesta!</span>`}</div></div>`
+      return p ? `<div class="mrow"><img src="${safeImg(p.selfie)}" alt=""><div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-start"><b>${esc(p.name)}</b>${p.side && hasSides() ? `<span class="sidetag" style="margin:0">${esc(sideLabel(p.side, true))}</span>` : ""}${c?.message ? `<div class="hint" style="font-style:italic;margin:0">“${esc(c.message)}”</div>` : `<span class="muted small">No ha dejado mensaje: ¡a buscarle por la fiesta!</span>`}</div></div>`
         : `<div class="mrow"><div class="muted">Esta persona ha salido del radar.</div></div>`;
     }).join("")}</div>`
       : `<div class="empty"><div class="big">💌</div><p>Aún no hay matches.<br>Cuando alguien a quien has guiñado te devuelva el guiño, aparecerá aquí.</p></div>`;
@@ -536,6 +727,7 @@ function renderMain(app, demo) {
         <img src="${safeImg(me.selfie)}" alt="" style="width:120px;height:120px;border-radius:50%;object-fit:cover">
         <h2 style="margin:.4em 0 .1em">${esc(me.name)}</h2>
         <p class="muted small">${lbl[me.gender] || ""} · le interesan ${lbl[me.interest] || ""}</p>
+        ${me.side && hasSides() ? `<div class="sidetag">${esc(sideLabel(me.side, true))}</div>` : ""}
         ${me.message ? `<div class="hint" style="font-style:italic">“${esc(me.message)}”</div>` : ""}
         <p class="small muted" style="margin-top:12px">Guiños usados: ${S.sentTo.size} de ${MAX_SIGNALS}</p>
       </div>
@@ -545,7 +737,7 @@ function renderMain(app, demo) {
   }
 
   app.innerHTML = `${demo}
-    <div class="topbar"><div><div class="brand">${esc(APP_NAME)}</div><div class="serif" style="font-size:1.15rem">${esc(S.event.name)}</div></div>
+    ${theme() === "neon" ? deco() : ""}<div class="topbar"><div><div class="brand sm">${esc(APP_NAME)}</div><div class="evname">${esc(S.event.name)}</div></div>
     <span class="pill">😉 ${signalsLeft()} ${signalsLeft() === 1 ? "guiño" : "guiños"}</span></div>
     ${body}`;
 
