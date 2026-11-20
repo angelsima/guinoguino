@@ -31,6 +31,12 @@
   .qr{margin-top:12px;padding:12px;background:#fff;border:1px dashed var(--line);border-radius:12px;display:inline-block}
   .warn{background:#FFF3C9;color:#6B5200;border-radius:12px;padding:12px 14px}
   .ev h2{margin:.1em 0}
+  .themes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+  .themes input{position:absolute;opacity:0}
+  .themes label{margin:0;display:block;border:2px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;font-weight:600;background:#fff}
+  .themes input:checked+label{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .themes .sw{display:flex;gap:4px;margin-top:8px}.themes .sw i{width:22px;height:22px;border-radius:50%;display:block;border:1px solid rgba(0,0,0,.12)}
+  .themes small{display:block;font-weight:400;color:var(--soft);margin-top:4px}
 </style>
 </head>
 <body>
@@ -91,17 +97,45 @@ async function renderPanel(user) {
     <div id="admincheck"></div>
     <div class="card">
       <h2>Nuevo evento</h2>
+      <label>Tipo de evento</label>
+      <div class="themes">
+        <div><input type="radio" name="kind" id="k-boda" value="boda" checked><label for="k-boda">💍 Boda<small>Los invitados dicen de parte de quién vienen (de un novio, del otro o de los dos).</small></label></div>
+        <div><input type="radio" name="kind" id="k-fiesta" value="fiesta"><label for="k-fiesta">🎉 Fiesta<small>Cualquier otro evento: cumpleaños, festival, fiesta privada…</small></label></div>
+      </div>
+      <div id="couple" class="grid2">
+        <div><label for="s1">Nombre de un novio/a</label><input id="s1" maxlength="24" placeholder="Ana"></div>
+        <div><label for="s2">Nombre del otro novio/a</label><input id="s2" maxlength="24" placeholder="Luis"></div>
+      </div>
       <div class="grid2">
-        <div><label for="n">Nombre (lo verán los invitados)</label><input id="n" placeholder="Boda de Ana y Luis"></div>
+        <div><label for="n">Nombre del evento (lo verán los invitados)</label><input id="n" placeholder="Boda de Ana y Luis"></div>
         <div><label for="end">Se cierra el radar a las</label><input id="end" type="datetime-local"></div>
       </div>
       <label for="code">Código del enlace</label><input id="code" placeholder="se genera solo">
+      <label>Diseño</label>
+      <div class="themes">
+        <div><input type="radio" name="theme" id="th-boda" value="boda" checked><label for="th-boda">Elegante<small>Como una invitación: marfil, verde salvia y oro.</small><span class="sw"><i style="background:#F6F1E7"></i><i style="background:#3E5C48"></i><i style="background:#B39257"></i></span></label></div>
+        <div><input type="radio" name="theme" id="th-neon" value="neon"><label for="th-neon">Neón<small>Cartel de concierto: fondo noche, rosa, lima y azul eléctrico.</small><span class="sw"><i style="background:#0D0A12"></i><i style="background:#FF2D95"></i><i style="background:#C8FF2E"></i><i style="background:#4F7BFF"></i></span></label></div>
+      </div>
       <div class="row" style="margin-top:14px"><button class="btn" id="create">Crear evento</button><span class="small muted" id="cmsg"></span></div>
     </div>
     <div id="events"></div>`;
   $("#out").onclick = () => authM.signOut(auth);
   const end = new Date(); end.setHours(end.getHours() + 8, 0, 0, 0); $("#end").value = toLocalInput(end);
-  $("#n").oninput = () => { $("#code").placeholder = $("#n").value ? slug($("#n").value) + "-" + "xxxx" : "se genera solo"; };
+  $("#n").oninput = () => { $("#n").dataset.touched = "1"; $("#code").placeholder = $("#n").value ? slug($("#n").value) + "-" + "xxxx" : "se genera solo"; };
+  const syncKind = () => {
+    const boda = document.querySelector("input[name=kind]:checked").value === "boda";
+    $("#couple").style.display = boda ? "" : "none";
+    $("#n").placeholder = boda ? "Boda de Ana y Luis" : "Fiesta de fin de año";
+  };
+  const autoName = () => {
+    if ($("#n").dataset.touched) return;
+    const a = $("#s1").value.trim(), b = $("#s2").value.trim();
+    $("#n").value = a && b ? `Boda de ${a} y ${b}` : "";
+    $("#code").placeholder = $("#n").value ? slug($("#n").value) + "-xxxx" : "se genera solo";
+  };
+  document.querySelectorAll("input[name=kind]").forEach(r => r.onchange = syncKind);
+  $("#s1").oninput = autoName; $("#s2").oninput = autoName;
+  syncKind();
   $("#create").onclick = () => createEvent(user);
   loadEvents(user);
 }
@@ -116,13 +150,19 @@ async function createEvent(user) {
   const name = $("#n").value.trim(), endVal = $("#end").value;
   const code = slug($("#code").value.trim() || ($("#n").value ? slug($("#n").value) + "-" + rand() : ""));
   const msg = $("#cmsg");
+  const kind = document.querySelector("input[name=kind]:checked")?.value === "fiesta" ? "fiesta" : "boda";
+  const sides = [$("#s1").value.trim(), $("#s2").value.trim()];
+  if (kind === "boda" && (!sides[0] || !sides[1])) return msg.textContent = "Pon el nombre de los dos novios.";
   if (!name || !endVal || !code) return msg.textContent = "Pon nombre y hora de cierre.";
   const endsAt = new Date(endVal);
   if (endsAt <= new Date()) return msg.textContent = "La hora de cierre tiene que ser futura.";
   $("#create").disabled = true; msg.textContent = "Creando…";
   try {
-    await setDoc(doc(db, "events", code), { name, active: true, endsAt: Timestamp.fromDate(endsAt), createdAt: serverTimestamp(), owner: user.uid });
-    msg.textContent = "¡Creado!"; $("#n").value = ""; $("#code").value = "";
+    const theme = document.querySelector("input[name=theme]:checked")?.value === "neon" ? "neon" : "boda";
+    const data = { name, kind, theme, active: true, endsAt: Timestamp.fromDate(endsAt), createdAt: serverTimestamp(), owner: user.uid };
+    if (kind === "boda") data.sides = sides;
+    await setDoc(doc(db, "events", code), data);
+    msg.textContent = "¡Creado!"; ["n", "code", "s1", "s2"].forEach(id => $("#" + id).value = ""); delete $("#n").dataset.touched;
     loadEvents(user);
   } catch (e) {
     msg.textContent = e.code === "permission-denied" ? "Sin permiso: aún no eres admin (mira el aviso amarillo)." : "Error: " + (e.code || e.message);
@@ -147,12 +187,13 @@ async function loadEvents(user) {
     const open = ev.active !== false && ev.endsMs > Date.now();
     return `<div class="card ev" data-id="${esc(ev.id)}">
       <div class="row" style="justify-content:space-between"><h2>${esc(ev.name)}</h2><span class="tag ${open ? "on" : "off"}">${open ? "Abierto" : "Cerrado"}</span></div>
-      <p class="small muted">Cierra: ${esc(fmt(ev.endsMs))} · <span class="stats">contando…</span></p>
+      <p class="small muted">Cierra: ${esc(fmt(ev.endsMs))} · ${ev.kind === "fiesta" ? "Fiesta" : "Boda" + (Array.isArray(ev.sides) ? ` (${esc(ev.sides[0])} y ${esc(ev.sides[1])})` : "")} · Diseño: <b>${isNeon(ev) ? "Neón" : "Elegante"}</b> · <span class="stats">contando…</span></p>
       <p class="small">Enlace: <code>${esc(guestUrl(ev.id))}</code></p>
       <div class="row">
         <button class="btn ghost" data-a="copy">Copiar enlace</button>
         <button class="btn ghost" data-a="qr">Ver QR</button>
         <button class="btn ghost" data-a="poster">Imprimir cartel</button>
+        <button class="btn ghost" data-a="theme">Cambiar a ${isNeon(ev) ? "Elegante" : "Neón"}</button>
         <button class="btn ghost" data-a="toggle">${ev.active !== false ? "Cerrar radar" : "Reabrir radar"}</button>
         <button class="btn bad" data-a="wipe">Borrar fichas</button>
         <button class="btn bad" data-a="del">Eliminar evento</button>
@@ -167,6 +208,7 @@ async function loadEvents(user) {
     if (a === "copy") { await navigator.clipboard.writeText(guestUrl(id)); b.textContent = "¡Copiado!"; }
     if (a === "qr") { const w = card.querySelector(".qrwrap"); if (w.innerHTML) { w.innerHTML = ""; return; } drawQR(w, id); }
     if (a === "poster") printPoster(ev);
+    if (a === "theme") { await updateDoc(doc(db, "events", id), { theme: isNeon(ev) ? "boda" : "neon" }); loadEvents(user); }
     if (a === "toggle") { await updateDoc(doc(db, "events", id), { active: ev.active === false }); loadEvents(user); }
     if (a === "wipe" && confirm(`¿Borrar todas las fichas, guiños y matches de "${ev.name}"? No se puede deshacer.`)) { b.disabled = true; await wipe(id); countStats(id); b.disabled = false; }
     if (a === "del" && confirm(`¿Eliminar "${ev.name}" y todos sus datos?`)) { await wipe(id); await deleteDoc(doc(db, "events", id)); loadEvents(user); }
@@ -209,27 +251,82 @@ function drawQR(el, id, size = 240) {
   };
 }
 
+const isNeon = (ev) => ev.theme === "neon" || ev.theme === "fiesta";
+
+function posterDeco(theme) {
+  if (theme === "neon") {
+    const app = esc(CFG.appName || "Guiño guiño");
+    const unit = `<span>${app}</span><i>●</i><span>¿Estás soltero o soltera?</span><i>●</i>`;
+    return `<div class="tk"><div>${unit.repeat(6)}</div></div>`;
+  }
+  let l = "";
+  for (let i = 0; i < 6; i++) {
+    const d = 18 + i * 13, up = i % 2 ? -1 : 1;
+    l += `<ellipse cx="${200 - d}" cy="${26 + up * 6}" rx="8" ry="3" transform="rotate(${up * -28} ${200 - d} ${26 + up * 6})"/><ellipse cx="${200 + d}" cy="${26 + up * 6}" rx="8" ry="3" transform="rotate(${up * 28} ${200 + d} ${26 + up * 6})"/>`;
+  }
+  return `<svg viewBox="0 0 400 52" style="width:300px;display:block;margin:0 auto"><path d="M10 26H100M300 26H390" stroke="#B39257" stroke-width="1"/><path d="M100 26H300" stroke="#3E5C48" stroke-width="1.2" opacity=".6"/><g fill="#3E5C48" opacity=".8">${l}</g><circle cx="200" cy="26" r="4" fill="#B39257"/></svg>`;
+}
+
 function printPoster(ev) {
+  const theme = isNeon(ev) ? "neon" : "boda";
+  const app = CFG.appName || "Guiño guiño";
   const tmp = document.createElement("div");
-  new QRCode(tmp, { text: guestUrl(ev.id), width: 600, height: 600, correctLevel: QRCode.CorrectLevel.M });
+  new QRCode(tmp, { text: guestUrl(ev.id), width: 600, height: 600, colorDark: theme === "neon" ? "#0D0A12" : "#26342B", correctLevel: QRCode.CorrectLevel.M });
   const png = tmp.querySelector("canvas").toDataURL("image/png");
   const w = window.open("", "_blank");
   if (!w) return alert("Permite las ventanas emergentes para imprimir el cartel.");
-  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Cartel ${esc(ev.name)}</title>
-  <style>@page{size:A4;margin:0}body{margin:0;font-family:Georgia,serif;color:#2B2320;background:#FBF6EF;text-align:center}
-  .p{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px}
-  .k{letter-spacing:.15em;text-transform:uppercase;color:#D9573F;font-size:18px}
-  h1{font-size:54px;font-weight:normal;margin:.3em 0 .1em;line-height:1.1}
-  p{font-size:22px;color:#5A4E48;max-width:520px;margin:.4em auto}
-  img{width:330px;height:330px;margin:28px 0;padding:18px;background:#fff;border-radius:24px}
-  .s{font-size:15px;color:#7A6E68}.gg{font-style:italic;font-size:30px;color:#D9573F;margin-top:6px}</style></head><body><div class="p">
-  <div class="k">${esc(ev.name)}</div>
+  const fonts = `<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Great+Vibes&family=Anton&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">`;
+  const side = ev.kind !== "fiesta" && Array.isArray(ev.sides);
+  const boda = `
+  <style>@page{size:A4;margin:0}*{box-sizing:border-box}html,body{margin:0;height:100%}
+  body{background:#F6F1E7;color:#26342B;font-family:"Cormorant Garamond",Georgia,serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .p{height:100vh;padding:14mm;display:flex}
+  .f1{flex:1;border:1.5px solid #B39257;padding:5mm;display:flex}
+  .f2{flex:1;border:.6px solid #B39257;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10mm 14mm}
+  .b{font-family:"Great Vibes",cursive;font-size:64px;color:#B39257;line-height:1;margin:8px 0 2px}
+  .e{font-style:italic;font-size:24px;letter-spacing:.02em;color:#3E5C48}
+  h1{font-weight:500;font-size:50px;line-height:1.08;margin:22px 0 6px}
+  p{font-size:22px;color:#4E5A52;max-width:460px;margin:6px auto;line-height:1.35}
+  .q{margin:24px 0 18px;padding:14px;background:#fff;border:1px solid #B39257;outline:1px solid #E2D7C2;outline-offset:6px}
+  .q img{width:280px;height:280px;display:block}
+  .s{font-size:17px;color:#6E786F}</style></head><body><div class="p"><div class="f1"><div class="f2">
+  ${posterDeco("boda")}
+  <div class="b">${esc(app)}</div><div class="e">${esc(ev.name)}</div>
   <h1>¿Estás soltero<br>o soltera?</h1>
-  <p>Escanea y descubre si alguien de aquí quiere conocerte…</p>
-  <div class="gg">guiño guiño 😉</div>
-  <img src="${png}" alt="QR">
+  <p>Escanea y descubre si alguien de aquí quiere conocerte.</p>
+  <div class="q"><img src="${png}" alt="QR"></div>
   <p class="s">Nadie sabrá que le has guiñado… salvo que te guiñe también.<br>Todo se borra al terminar la fiesta.</p>
-  </div><script>window.onload=()=>setTimeout(()=>print(),300)<\/script></body></html>`);
+  ${posterDeco("boda")}
+  </div></div></div>`;
+  const neon = `
+  <style>@page{size:A4;margin:0}*{box-sizing:border-box}html,body{margin:0;height:100%}
+  body{background:#0D0A12;color:#F7F3FF;font-family:Inter,Helvetica,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .p{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  .tk{background:#C8FF2E;color:#0D0A12;white-space:nowrap;overflow:hidden;font:400 22px/1 Anton,Impact,sans-serif;letter-spacing:.06em;text-transform:uppercase;padding:12px 0;transform:rotate(-2deg) scale(1.06);border-block:3px solid #0D0A12}
+  .tk.b2{transform:rotate(2deg) scale(1.06);background:#FF2D95}
+  .tk span{padding:0 12px}.tk i{font-style:normal;color:#FF2D95}.tk.b2 i{color:#C8FF2E}
+  .m{flex:1;display:flex;flex-direction:column;justify-content:center;padding:6mm 14mm}
+  .k{font-weight:700;font-size:16px;letter-spacing:.2em;text-transform:uppercase;color:#C8FF2E}
+  .e{font-weight:600;font-size:20px;color:#A99FBC;margin-top:6px}
+  h1{font:400 108px/.92 Anton,Impact,sans-serif;text-transform:uppercase;margin:18px 0 10px;letter-spacing:.005em}
+  h1 .o{display:block;color:transparent;-webkit-text-stroke:2.5px #F7F3FF}
+  .row{display:flex;gap:28px;align-items:center;margin-top:18px}
+  .q{flex:none;padding:14px;background:#fff;border-radius:18px;box-shadow:0 0 0 6px #FF2D95,0 0 50px rgba(255,45,149,.55)}
+  .q img{width:300px;height:300px;display:block}
+  .t{font-size:22px;line-height:1.4}
+  .t b{color:#C8FF2E}
+  .s{font-size:15px;color:#A99FBC;margin-top:14px}</style></head><body><div class="p">
+  ${posterDeco("neon")}
+  <div class="m">
+    <div class="k">${esc(app)} 😉</div><div class="e">${esc(ev.name)}</div>
+    <h1>¿Estás soltero<span class="o">o soltera?</span></h1>
+    <div class="row"><div class="q"><img src="${png}" alt="QR"></div>
+      <div class="t">Escanea y descubre si alguien de aquí <b>quiere conocerte</b>.<div class="s">Nadie sabrá que le has guiñado… salvo que te guiñe también.${side ? " Di de parte de quién vienes y sabréis a quién preguntar." : ""}<br>Todo se borra al terminar la fiesta.</div></div></div>
+  </div>
+  <div class="tk b2"><div>${`<span>Guiña</span><i>●</i><span>Haz match</span><i>●</i><span>Búscale por la fiesta</span><i>●</i>`.repeat(5)}</div></div>
+  </div>`;
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Cartel ${esc(ev.name)}</title>${fonts}${theme === "neon" ? neon : boda}
+  <script>window.onload=()=>{(document.fonts&&document.fonts.ready||Promise.resolve()).then(()=>setTimeout(()=>print(),300))}<\/script></body></html>`);
   w.document.close();
 }
 </script>
