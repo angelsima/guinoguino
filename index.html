@@ -594,7 +594,7 @@ function renderForm(app, demo) {
       <button class="btn ${S.selfie ? "ghost" : ""} small" id="cam">${S.selfie ? "Repetir selfie" : "Hacer selfie"}</button>
     </div>
     <input type="file" id="file" accept="image/*" capture="user" hidden>
-    <p class="small muted center">Hecho ahora, con la cara bien visible y buena luz: así te reconocerán. Sin gafas de sol ni filtros.</p>
+    <p class="small muted center">Hecho ahora, con la cara bien visible y buena luz: así te reconocerán. Sin gafas de sol ni filtros.${isBoda() ? "" : " Si hay poca luz, ponte bajo un foco o que alguien te alumbre con la linterna del móvil."}</p>
 
     <label class="f" for="name">Tu nombre</label>
     <input type="text" id="name" maxlength="24" placeholder="Como quieras que te llamen" value="${esc(me?.name || "")}">
@@ -653,7 +653,24 @@ function squareJpeg(src, w, h, mirror) {
   const ctx = c.getContext("2d");
   if (mirror) { ctx.translate(size, 0); ctx.scale(-1, 1); }
   ctx.drawImage(src, (w - side) / 2, (h - side) / 2, side, side, 0, 0, size, size);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  brighten(ctx, size);
   return c.toDataURL("image/jpeg", 0.72);
+}
+// Si la foto sale oscura (discoteca, terraza de noche), levanta las sombras con una curva de gamma.
+function brighten(ctx, size) {
+  try {
+    const d = ctx.getImageData(0, 0, size, size), p = d.data;
+    let sum = 0, n = 0;
+    for (let i = 0; i < p.length; i += 16) { sum += 0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2]; n++; }
+    const mean = sum / n;
+    if (mean >= 105) return;
+    const g = Math.max(0.45, Math.log(0.47) / Math.log(Math.max(mean, 4) / 255));
+    const lut = new Uint8ClampedArray(256);
+    for (let v = 0; v < 256; v++) lut[v] = 255 * Math.pow(v / 255, g);
+    for (let i = 0; i < p.length; i += 4) { p[i] = lut[p[i]]; p[i + 1] = lut[p[i + 1]]; p[i + 2] = lut[p[i + 2]]; }
+    ctx.putImageData(d, 0, 0);
+  } catch {}
 }
 function fileToSelfie(file) {
   const img = new Image();
@@ -686,13 +703,17 @@ async function saveForm() {
   } catch (e) {
     console.error(e);
     btn.disabled = false; btn.textContent = S.editing ? "Guardar cambios" : "Entrar al radar";
-    err.textContent = String(e?.code).includes("permission") ? "El radar de este evento está cerrado." : "No se ha podido guardar. Revisa tu conexión.";
+    const denied = String(e?.code).includes("permission");
+    err.textContent = !denied ? "No se ha podido guardar. Revisa tu conexión."
+      : ended() ? "El radar de este evento está cerrado."
+      : "No se ha podido guardar tu ficha (el servidor la ha rechazado). Avisa a quien organiza el evento.";
   }
 }
 
 /* ── Pantalla principal ── */
 function renderMain(app, demo) {
   const me = S.me;
+  const others = S.profiles.filter(p => p.id !== S.uid).length;
   const visible = S.profiles.filter(p => p.id !== S.uid && compatible(me, p)).sort((a, b) => a.name.localeCompare(b.name, "es"));
   const nMatches = S.matches.length;
   let body = "";
@@ -706,7 +727,9 @@ function renderMain(app, demo) {
         : `<button class="btn small" data-sig="${esc(p.id)}" ${signalsLeft() ? "" : "disabled"}>${signalsLeft() ? "😉 Guiñar" : "Sin guiños"}</button>`;
       return `<div class="person ${matched ? "matched" : ""}"><img src="${safeImg(p.selfie)}" alt="" loading="lazy"><div class="body"><div class="name">${esc(p.name)}</div>${p.side && hasSides() ? `<div class="side">${esc(sideLabel(p.side, true))}</div>` : ""}${btn}</div></div>`;
     }).join("")}</div>`
-      : `<div class="empty"><div class="big">📡</div><p>Todavía no hay nadie en tu radar.<br>Esto se va llenando a medida que la gente escanea el QR.</p></div>`;
+      : (others > 0
+        ? `<div class="empty"><div class="big">📡</div><p>Hay ${others === 1 ? "1 persona" : others + " personas"} en el evento, pero ninguna encaja todavía: o no son lo que buscas, o tú no eres lo que buscan.</p><p class="small">Puedes revisar «Me interesan» en <b>Mi ficha</b>.</p></div>`
+        : `<div class="empty"><div class="big">📡</div><p>Todavía no hay nadie en tu radar.<br>Esto se va llenando a medida que la gente escanea el QR.</p></div>`);
   }
 
   if (S.tab === "matches") {
