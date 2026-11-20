@@ -37,8 +37,9 @@
   .steps li{display:flex;gap:12px;align-items:flex-start;margin:12px 0}
   .steps b.n{flex:none;width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:.9rem}
   label.f{display:block;font-weight:600;margin:16px 0 6px}
-  input[type=text]{width:100%;font:inherit;padding:.75em .9em;border:1.5px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
-  input[type=text]:focus{outline:none;border-color:var(--accent)}
+  input[type=text],input[type=tel],textarea{width:100%;font:inherit;padding:.75em .9em;border:1.5px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
+  textarea{resize:vertical;min-height:84px}
+  input[type=text]:focus,input[type=tel]:focus,textarea:focus{outline:none;border-color:var(--accent)}
   .seg{display:flex;flex-wrap:wrap;gap:8px}
   .seg input{position:absolute;opacity:0;pointer-events:none}
   .seg label{padding:.55em 1em;border:1.5px solid var(--line);border-radius:999px;cursor:pointer;background:#fff;font-size:.95rem}
@@ -70,13 +71,15 @@
   .tabs .badge{position:absolute;top:0;left:calc(50% + 8px);background:var(--accent);color:#fff;border-radius:999px;font-size:.7rem;padding:1px 6px;font-weight:700}
   .mrow{display:flex;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
   .mrow:last-child{border-bottom:0}
-  .mrow img{width:64px;height:64px;border-radius:50%;object-fit:cover;flex:none;background:var(--accent-soft)}
+  .mrow img{width:84px;height:84px;border-radius:50%;object-fit:cover;flex:none;background:var(--accent-soft)}
   .hint{background:var(--ok-soft);color:var(--ok);border-radius:12px;padding:.5em .8em;font-size:.92rem;margin-top:4px}
   .overlay{position:fixed;inset:0;background:rgba(43,35,32,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20;animation:fade .2s}
   .modal{background:var(--bg);border-radius:24px;padding:24px 20px;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:pop .25s}
   .pair{display:flex;justify-content:center;margin:10px 0 14px}
   .pair img{width:104px;height:104px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:var(--shadow)}
-  .pair img+img{margin-left:-18px}
+  .pair{align-items:center}
+  .pair img+img{margin-left:-18px;width:148px;height:148px}
+  .person img,.mrow img,.pair img{cursor:zoom-in}
   @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
   @keyframes fade{from{opacity:0}}
   #toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:.7em 1.1em;border-radius:14px;font-size:.92rem;max-width:90vw;text-align:center;opacity:0;pointer-events:none;transition:opacity .25s;z-index:30}
@@ -96,7 +99,8 @@
    Flujo: QR → ficha con selfie → radar → guiños → match
    ══════════════════════════════════════════════════════════════ */
 
-const CFG = window.GUINO || {};
+if (!window.GUINO) { document.getElementById("app").innerHTML = '<div class="empty"><div class="big">⚠️</div><h2>Error en config.js</h2><p>El archivo de configuración tiene un fallo de escritura (revisa dos puntos, comas y llaves).</p></div>'; throw new Error("config.js no se ha cargado"); }
+const CFG = window.GUINO;
 const APP_NAME = CFG.appName || "Guiño guiño";
 const MAX_SIGNALS = CFG.maxSignals || 3;
 const params = new URLSearchParams(location.search);
@@ -112,7 +116,8 @@ const S = {
   api: null, eventId: null, event: null, uid: null,
   me: null, profiles: [], sentTo: new Set(), matches: [],
   view: "loading", tab: "radar", editing: false,
-  selfie: null, stream: null, errorMsg: "", watching: false, seenKey: ""
+  selfie: null, stream: null, errorMsg: "", watching: false, seenKey: "",
+  contacts: {}, matchBusy: false
 };
 
 /* ══════════════ BACKEND: Firebase ══════════════ */
@@ -126,7 +131,7 @@ async function makeFirebaseApi(cfg) {
   const app = appM.initializeApp(cfg);
   const auth = authM.getAuth(app);
   const db = fs.getFirestore(app);
-  const { doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, query, where, getDocs, serverTimestamp } = fs;
+  const { doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, query, where, getDocs, serverTimestamp, writeBatch } = fs;
   const col = (eid, name) => collection(db, "events", eid, name);
 
   return {
@@ -142,16 +147,35 @@ async function makeFirebaseApi(cfg) {
       return { name: d.name, active: d.active !== false, endsAt: d.endsAt?.toMillis?.() ?? 0 };
     },
     async getMyProfile(eid, uid) {
-      try { const s = await getDoc(doc(db, "events", eid, "profiles", uid)); return s.exists() ? { id: uid, ...s.data() } : null; }
-      catch { return null; }
+      try {
+        const s = await getDoc(doc(db, "events", eid, "profiles", uid));
+        if (!s.exists()) return null;
+        let c = {};
+        try { const cs = await getDoc(doc(db, "events", eid, "contacts", uid)); if (cs.exists()) c = cs.data(); } catch {}
+        return { id: uid, ...s.data(), message: c.message || "" };
+      } catch { return null; }
     },
+    // La ficha (pública para el evento) y el mensaje para los matches (privado) van en documentos distintos.
     async saveProfile(eid, uid, data) {
-      await setDoc(doc(db, "events", eid, "profiles", uid), { ...data, updatedAt: serverTimestamp() });
+      const { message, ...profile } = data;
+      const b = writeBatch(db);
+      b.set(doc(db, "events", eid, "profiles", uid), { ...profile, updatedAt: serverTimestamp() });
+      b.set(doc(db, "events", eid, "contacts", uid), { message: message || "", updatedAt: serverTimestamp() });
+      await b.commit();
+    },
+    async getContact(eid, otherUid) {
+      try {
+        const s = await getDoc(doc(db, "events", eid, "contacts", otherUid));
+        return s.exists() ? { message: s.data().message || "" } : null;
+      } catch { return null; }
     },
     async deleteMe(eid, uid) {
       const mine = await getDocs(query(col(eid, "signals"), where("from", "==", uid)));
       await Promise.all(mine.docs.map(d => deleteDoc(d.ref)));
-      await deleteDoc(doc(db, "events", eid, "profiles", uid));
+      const b = writeBatch(db);
+      b.delete(doc(db, "events", eid, "contacts", uid));
+      b.delete(doc(db, "events", eid, "profiles", uid));
+      await b.commit();
     },
     watchProfiles(eid, cb, onErr) {
       return onSnapshot(col(eid, "profiles"), s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))), onErr);
@@ -185,22 +209,23 @@ function avatar(name, bg) {
 function makeDemoApi() {
   const uid = "yo";
   const raw = [
-    ["Lucía", "mujer", "hombres", "Vestido verde, mesa 4", true, "#C9806B"],
-    ["Marta", "mujer", "todos", "Pelo rizado, cerca de la barra", false, "#8C6FA8"],
-    ["Carmen", "mujer", "hombres", "Chaqueta roja, pista de baile", true, "#B5654C"],
-    ["Elena", "mujer", "mujeres", "Gafas redondas, mesa 9", true, "#6F8FA8"],
-    ["Paula", "mujer", "todos", "Mono negro, junto al photocall", false, "#A88F6F"],
-    ["Javi", "hombre", "mujeres", "Corbata amarilla, mesa 7", true, "#5E8C77"],
-    ["Rubén", "hombre", "todos", "Barba, camisa blanca, terraza", false, "#7C7A9E"],
-    ["Dani", "hombre", "hombres", "Pajarita azul, en la barra", true, "#9E7A7C"],
-    ["Sergio", "hombre", "mujeres", "Traje gris, mesa 2", false, "#6B8E9E"],
-    ["Alex", "otro", "todos", "Chaleco de flores, cerca del DJ", true, "#A06F95"]
+    ["Lucía", "mujer", "hombres", "Bailo fatal pero con muchas ganas. Cuéntame tu peor anécdota de boda 😄", true, "#C9806B"],
+    ["Marta", "mujer", "todos", "Me gusta que me hablen sin prisa y con humor.", false, "#8C6FA8"],
+    ["Carmen", "mujer", "hombres", "Invítame a una caña y cuéntame qué haces cuando no estás en una boda.", true, "#B5654C"],
+    ["Elena", "mujer", "mujeres", "Si sabes bailar bachata, ya me caes bien.", true, "#6F8FA8"],
+    ["Paula", "mujer", "todos", "Soy la del mono negro. Sorpréndeme.", false, "#A88F6F"],
+    ["Javi", "hombre", "mujeres", "Soy el de la corbata amarilla. ¿Echamos un baile?", true, "#5E8C77"],
+    ["Rubén", "hombre", "todos", "Nada de frases hechas: dime algo que te haga reír.", false, "#7C7A9E"],
+    ["Dani", "hombre", "hombres", "Pajarita azul y ganas de fiesta.", true, "#9E7A7C"],
+    ["Sergio", "hombre", "mujeres", "Me gusta el vermú y las conversaciones largas.", false, "#6B8E9E"],
+    ["Alex", "otro", "todos", "Chaleco de flores. Pregúntame por qué.", true, "#A06F95"]
   ];
-  const fakes = raw.map(([name, gender, interest, hint, likesMe, c], i) =>
-    ({ id: "f" + i, name, gender, interest, hint, selfie: avatar(name, c), likesMe }));
+  const fakes = raw.map(([name, gender, interest, message, likesMe, c], i) =>
+    ({ id: "f" + i, name, gender, interest, message, selfie: avatar(name, c), likesMe }));
   let mine = null; const sent = new Set(); let matches = [];
   const L = { p: [], s: [], m: [] };
-  const all = () => (mine ? [mine, ...fakes] : [...fakes]);
+  const pub = ({ message, ...rest }) => rest;
+  const all = () => (mine ? [pub(mine), ...fakes.map(pub)] : fakes.map(pub));
   const emit = () => { L.p.forEach(f => f(all())); L.s.forEach(f => f([...sent])); L.m.forEach(f => f([...matches])); };
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
   return {
@@ -208,6 +233,7 @@ function makeDemoApi() {
     async signIn() { return uid; },
     async getEvent() { return { name: "Boda de Ana y Luis (demo)", active: true, endsAt: Date.now() + 6 * 3600e3 }; },
     async getMyProfile() { return mine; },
+    async getContact(e, id) { const f = fakes.find(x => x.id === id); return f ? { message: f.message } : null; },
     async saveProfile(e, u, d) { await wait(300); mine = { id: uid, ...d }; emit(); },
     async deleteMe() { mine = null; sent.clear(); matches = []; emit(); },
     watchProfiles(e, cb) { L.p.push(cb); cb(all()); return () => {}; },
@@ -245,6 +271,40 @@ function ask(html, okLabel = "Sí", cancelLabel = "Cancelar") {
 function seenSet() { try { return new Set(JSON.parse(localStorage.getItem(S.seenKey) || "[]")); } catch { return new Set(); } }
 function markSeen(id) { try { const s = seenSet(); s.add(id); localStorage.setItem(S.seenKey, JSON.stringify([...s])); } catch {} }
 
+/* ─────────────── Mensaje para los matches ─────────────── */
+async function getContact(id, force) {
+  if (!force && S.contacts[id]) return S.contacts[id];
+  const timeout = new Promise(r => setTimeout(() => r(null), 4000));
+  const c = await Promise.race([S.api.getContact(S.eventId, id), timeout]);
+  if (c) S.contacts[id] = c;
+  return c || S.contacts[id] || null;
+}
+async function ensureContacts(force) {
+  const ids = S.matches.map(otherOf).filter(Boolean);
+  let changed = false;
+  await Promise.all(ids.map(async id => {
+    if (!force && S.contacts[id]) return;
+    const before = JSON.stringify(S.contacts[id] || null);
+    const c = await getContact(id, true);
+    if (JSON.stringify(c || null) !== before) changed = true;
+  }));
+  if (changed && S.view === "main" && S.tab === "matches") render();
+}
+function contactBlock(p, c) {
+  if (!c?.message) return `<p class="muted">No ha dejado mensaje: ¡a buscarle por la fiesta!</p>`;
+  return `<p class="muted small" style="margin:10px 0 4px">Esto te dice ${esc(p.name)}:</p><div class="hint" style="font-size:1.05rem;font-style:italic">“${esc(c.message)}”</div>`;
+}
+
+// Tocar una foto la amplía (para reconocer a la persona).
+document.addEventListener("click", (e) => {
+  const img = e.target.closest(".person img, .mrow img, .pair img");
+  if (!img || !img.src.startsWith("data:image/")) return;
+  const o = document.createElement("div"); o.className = "overlay zoom";
+  o.innerHTML = `<img src="${esc(img.src)}" alt="" style="width:min(86vw,420px);height:min(86vw,420px);object-fit:cover;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.4)">`;
+  o.onclick = () => o.remove();
+  document.body.appendChild(o);
+});
+
 /* ─────────────── Arranque ─────────────── */
 async function boot() {
   try {
@@ -273,34 +333,35 @@ function startMain() {
     const onErr = (e) => { console.error(e); if (String(e?.code).includes("permission")) showEnded(); };
     S.api.watchProfiles(S.eventId, list => { S.profiles = list; if (S.view === "main") render(); checkNewMatches(); }, onErr);
     S.api.watchMySignals(S.eventId, S.uid, tos => { S.sentTo = new Set(tos); if (S.view === "main") render(); }, onErr);
-    S.api.watchMatches(S.eventId, S.uid, ms => { S.matches = ms; if (S.view === "main") render(); checkNewMatches(); }, onErr);
+    S.api.watchMatches(S.eventId, S.uid, ms => { S.matches = ms; if (S.view === "main") render(); checkNewMatches(); ensureContacts(false); }, onErr);
     setInterval(() => { if (S.view === "main" && ended()) showEnded(); }, 30000);
   }
   render();
 }
 
 function checkNewMatches() {
-  if ($(".overlay.match")) return;
+  if (S.matchBusy || $(".overlay.match")) return;
   const seen = seenSet();
   const m = S.matches.find(x => !seen.has(x.id));
   if (!m) return;
   const p = profileById(otherOf(m));
   if (!p) return; // aún no ha llegado su ficha; reintentará en la próxima actualización
   markSeen(m.id);
+  S.matchBusy = true;
   showMatch(p);
 }
 
-function showMatch(p) {
+async function showMatch(p) {
   navigator.vibrate?.([80, 60, 120]);
+  const c = await getContact(p.id);
   const o = document.createElement("div"); o.className = "overlay match";
   o.innerHTML = `<div class="modal">
     <div class="brand">Guiño guiño 😉</div>
     <div class="pair"><img src="${safeImg(S.me?.selfie)}" alt=""><img src="${safeImg(p.selfie)}" alt=""></div>
     <h2 class="serif">${esc(p.name)} te ha devuelto el guiño</h2>
-    <p class="muted">Búscale aquí:</p>
-    <div class="hint" style="font-size:1.05rem">📍 ${esc(p.hint)}</div>
+    ${contactBlock(p, c)}
     <button class="btn block" style="margin-top:20px">¡Voy!</button></div>`;
-  o.querySelector("button").onclick = () => { o.remove(); checkNewMatches(); };
+  o.querySelector("button").onclick = () => { o.remove(); S.matchBusy = false; checkNewMatches(); };
   document.body.appendChild(o);
 }
 
@@ -327,9 +388,9 @@ function renderWelcome(app, demo) {
     <h1>¿Estás soltero o soltera?</h1>
     <p class="muted">En <b>${esc(S.event.name)}</b> hay más gente como tú. Descubre si alguien de aquí quiere conocerte, sin vergüenzas: nadie sabe que le has guiñado salvo que te guiñe también.</p>
     <ul class="steps">
-      <li><b class="n">1</b><div>Hazte un selfie y di cómo encontrarte (ropa, mesa…).</div></li>
+      <li><b class="n">1</b><div>Hazte un selfie y deja un mensaje para quien haga match contigo.</div></li>
       <li><b class="n">2</b><div>Mira quién está en el radar y manda hasta <b>${MAX_SIGNALS} guiños</b>.</div></li>
-      <li><b class="n">3</b><div>Si es mutuo, os avisamos y os decimos dónde está cada uno. El resto, en persona.</div></li>
+      <li><b class="n">3</b><div>Si es mutuo, os avisamos y veréis el mensaje del otro. El resto, en persona: a buscarse por la fiesta.</div></li>
     </ul>
     <p class="small muted">🔒 Todo se borra cuando termina el evento. Solo para mayores de 18.</p>
     <button class="btn block" id="go">Entrar</button>`;
@@ -349,7 +410,7 @@ function renderForm(app, demo) {
       <button class="btn ${S.selfie ? "ghost" : ""} small" id="cam">${S.selfie ? "Repetir selfie" : "Hacer selfie"}</button>
     </div>
     <input type="file" id="file" accept="image/*" capture="user" hidden>
-    <p class="small muted center">Un selfie hecho ahora, para que te reconozcan.</p>
+    <p class="small muted center">Hecho ahora, con la cara bien visible y buena luz: así te reconocerán. Sin gafas de sol ni filtros.</p>
 
     <label class="f" for="name">Tu nombre</label>
     <input type="text" id="name" maxlength="24" placeholder="Como quieras que te llamen" value="${esc(me?.name || "")}">
@@ -360,9 +421,10 @@ function renderForm(app, demo) {
     <label class="f">Me interesan</label>
     ${seg("interest", [["mujeres", "Mujeres"], ["hombres", "Hombres"], ["todos", "Todo el mundo"]], me?.interest)}
 
-    <label class="f" for="hint">¿Cómo te encuentran?</label>
-    <input type="text" id="hint" maxlength="80" placeholder="Ej.: vestido azul, mesa 7" value="${esc(me?.hint || "")}">
-    <p class="small muted">Solo lo verá quien haga match contigo.</p>
+    <label class="f" for="msg">Di algo a quien haga match contigo</label>
+    <textarea id="msg" maxlength="140" rows="3" placeholder="Ej.: Bailo fatal pero con ganas. Cuéntame tu peor anécdota de boda 😉">${esc(me?.message || "")}</textarea>
+    <p class="small muted">Un rompehielos, algo que te gusta, cómo te gusta que te hablen… Solo lo verá quien haga match contigo.</p>
+
 
     ${S.editing ? "" : `<label class="check"><input type="checkbox" id="adult"><span>Tengo 18 años o más y acepto aparecer en el radar de este evento. Mi ficha se borrará al terminar.</span></label>`}
     <div class="err" id="err"></div>
@@ -414,16 +476,15 @@ function fileToSelfie(file) {
 async function saveForm() {
   const err = $("#err"); err.textContent = "";
   const name = $("#name").value.trim();
-  const hint = $("#hint").value.trim();
+  const message = $("#msg").value.trim();
   const gender = $("input[name=gender]:checked")?.value;
   const interest = $("input[name=interest]:checked")?.value;
   if (!S.selfie) return err.textContent = "Falta tu selfie.";
   if (!name) return err.textContent = "Pon tu nombre.";
   if (!gender || !interest) return err.textContent = "Dinos qué eres y qué te interesa.";
-  if (!hint) return err.textContent = "Di cómo encontrarte (ropa, mesa…).";
   if (!S.editing && !$("#adult").checked) return err.textContent = "Tienes que confirmar que eres mayor de edad.";
   const btn = $("#save"); btn.disabled = true; btn.textContent = "Guardando…";
-  const data = { name, gender, interest, hint, selfie: S.selfie };
+  const data = { name, gender, interest, selfie: S.selfie, message };
   try {
     await S.api.saveProfile(S.eventId, S.uid, data);
     stopCam();
@@ -461,7 +522,8 @@ function renderMain(app, demo) {
     body = `<h2>Tus matches</h2>`;
     body += nMatches ? `<div class="card">${S.matches.map(m => {
       const p = profileById(otherOf(m));
-      return p ? `<div class="mrow"><img src="${safeImg(p.selfie)}" alt=""><div><b>${esc(p.name)}</b><div class="hint">📍 ${esc(p.hint)}</div></div></div>`
+      const c = S.contacts[m.members.find(x => x !== S.uid)];
+      return p ? `<div class="mrow"><img src="${safeImg(p.selfie)}" alt=""><div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-start"><b>${esc(p.name)}</b>${c?.message ? `<div class="hint" style="font-style:italic;margin:0">“${esc(c.message)}”</div>` : `<span class="muted small">No ha dejado mensaje: ¡a buscarle por la fiesta!</span>`}</div></div>`
         : `<div class="mrow"><div class="muted">Esta persona ha salido del radar.</div></div>`;
     }).join("")}</div>`
       : `<div class="empty"><div class="big">💌</div><p>Aún no hay matches.<br>Cuando alguien a quien has guiñado te devuelva el guiño, aparecerá aquí.</p></div>`;
@@ -474,7 +536,7 @@ function renderMain(app, demo) {
         <img src="${safeImg(me.selfie)}" alt="" style="width:120px;height:120px;border-radius:50%;object-fit:cover">
         <h2 style="margin:.4em 0 .1em">${esc(me.name)}</h2>
         <p class="muted small">${lbl[me.gender] || ""} · le interesan ${lbl[me.interest] || ""}</p>
-        <div class="hint">📍 ${esc(me.hint)}</div>
+        ${me.message ? `<div class="hint" style="font-style:italic">“${esc(me.message)}”</div>` : ""}
         <p class="small muted" style="margin-top:12px">Guiños usados: ${S.sentTo.size} de ${MAX_SIGNALS}</p>
       </div>
       <button class="btn ghost block" id="edit">Editar ficha</button>
@@ -493,7 +555,7 @@ function renderMain(app, demo) {
   }
   $(".tabs .in").innerHTML = [["radar", "📡", "Radar"], ["matches", "💛", "Matches"], ["me", "🙂", "Mi ficha"]].map(([k, ic, l]) =>
     `<button class="${S.tab === k ? "on" : ""}" data-tab="${k}"><span class="ic">${ic}</span>${l}${k === "matches" && nMatches ? `<span class="badge">${nMatches}</span>` : ""}</button>`).join("");
-  $(".tabs .in").onclick = (e) => { const b = e.target.closest("[data-tab]"); if (b) { S.tab = b.dataset.tab; render(); window.scrollTo(0, 0); } };
+  $(".tabs .in").onclick = (e) => { const b = e.target.closest("[data-tab]"); if (b) { S.tab = b.dataset.tab; render(); window.scrollTo(0, 0); if (S.tab === "matches") ensureContacts(true); } };
 
   app.querySelectorAll("[data-sig]").forEach(b => b.onclick = () => sendSignal(b.dataset.sig, b));
   app.querySelectorAll("[data-match]").forEach(b => b.onclick = () => { const p = profileById(b.dataset.match); if (p) showMatch(p); });
