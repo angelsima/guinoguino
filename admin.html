@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Guiño guiño · Panel</title>
+<title>La Mesa 0 · Panel</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E😉%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -58,7 +58,7 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const M = $("#m");
 
 if (!CFG.firebaseConfig?.apiKey) {
-  M.innerHTML = `<h1>Panel de ${esc(CFG.appName || "Guiño guiño")}</h1>
+  M.innerHTML = `<h1>Panel de ${esc(CFG.appName || "La Mesa 0")}</h1>
   <div class="warn">Todavía no has pegado la configuración de Firebase en <code>config.js</code>. Sigue los pasos del archivo <b>LEEME.md</b>.<br><br>
   Mientras tanto puedes ver la web de invitados en modo demo: <a href="index.html">abrir demo</a>.</div>`;
   throw new Error("Sin configuración");
@@ -87,7 +87,7 @@ authM.onAuthStateChanged(auth, user => {
 });
 
 function renderLogin() {
-  M.innerHTML = `<h1>Panel de ${esc(CFG.appName || "Guiño guiño")}</h1>
+  M.innerHTML = `<h1>Panel de ${esc(CFG.appName || "La Mesa 0")}</h1>
     <p class="muted">Entra con tu cuenta de Google para crear eventos y sacar el QR.</p>
     <button class="btn" id="login">Entrar con Google</button>
     <p class="small muted" id="lerr"></p>`;
@@ -99,7 +99,7 @@ function renderLogin() {
 
 async function renderPanel(user) {
   M.innerHTML = `<div class="row" style="justify-content:space-between">
-      <h1>Panel de ${esc(CFG.appName || "Guiño guiño")}</h1>
+      <h1>Panel de ${esc(CFG.appName || "La Mesa 0")}</h1>
       <button class="btn ghost" id="out">Salir</button></div>
     <p class="small muted">Sesión: ${esc(user.email || "")}</p>
     <div id="admincheck"></div>
