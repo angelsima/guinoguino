@@ -170,6 +170,12 @@
   .hint{background:var(--ok-soft);color:var(--ok);border-radius:12px;padding:.55em .85em;font-size:.95rem;margin-top:4px}
   [data-theme=boda] .hint{font-family:var(--f-display);font-size:1.12rem;background:transparent;border-top:1px solid var(--line);border-bottom:1px solid var(--line);border-radius:0}
   [data-theme=neon] .hint{color:var(--ink);background:transparent;border-left:3px solid var(--lime);border-radius:0;padding:.3em .9em}
+  .igwrap{margin-top:10px;width:100%}
+  .mrow .igwrap{margin-top:2px}
+  .igin{display:flex;flex-direction:column;gap:8px;align-items:center;padding:10px;border-radius:12px;background:var(--ok-soft);color:var(--ink);font-size:.92rem}
+  .mrow .igin{align-items:flex-start;padding:8px 10px}
+  [data-theme=neon] .igin{border:1px solid var(--lime)}
+  .igin .btn{text-transform:none;letter-spacing:.01em}
   .sidetag{display:inline-block;font-size:.82rem;color:var(--soft);margin:2px 0 6px}
   [data-theme=boda] .sidetag{font-family:var(--f-display);font-style:italic;font-size:1rem}
   [data-theme=neon] .sidetag{color:var(--lime);font-weight:600;letter-spacing:.02em}
@@ -230,7 +236,8 @@ const S = {
   me: null, profiles: [], sentTo: new Set(), matches: [],
   view: "loading", tab: "radar", editing: false,
   selfie: null, stream: null, errorMsg: "", watching: false, seenKey: "",
-  contacts: {}, matchBusy: false
+  contacts: {}, matchBusy: false,
+  igIn: {}, igOut: {}, igReady: false
 };
 
 /* ══════════════ BACKEND: Firebase ══════════════ */
@@ -285,6 +292,8 @@ async function makeFirebaseApi(cfg) {
     async deleteMe(eid, uid) {
       const mine = await getDocs(query(col(eid, "signals"), where("from", "==", uid)));
       await Promise.all(mine.docs.map(d => deleteDoc(d.ref)));
+      const shares = await getDocs(query(col(eid, "shares"), where("from", "==", uid)));
+      await Promise.all(shares.docs.map(d => deleteDoc(d.ref)));
       const b = writeBatch(db);
       b.delete(doc(db, "events", eid, "contacts", uid));
       b.delete(doc(db, "events", eid, "profiles", uid));
@@ -299,6 +308,16 @@ async function makeFirebaseApi(cfg) {
     watchMatches(eid, uid, cb, onErr) {
       return onSnapshot(query(col(eid, "matches"), where("members", "array-contains", uid)),
         s => cb(s.docs.map(d => ({ id: d.id, members: d.data().members }))), onErr);
+    },
+    // Instagram que yo he enviado (out) y que me han enviado (in), por persona.
+    watchShares(eid, uid, cb, onErr) {
+      const st = { in: {}, out: {} }, done = { in: false, out: false };
+      const push = () => { if (done.in && done.out) cb({ in: { ...st.in }, out: { ...st.out } }); };
+      onSnapshot(query(col(eid, "shares"), where("to", "==", uid)), s => { st.in = {}; s.docs.forEach(d => st.in[d.data().from] = d.data().ig); done.in = true; push(); }, onErr);
+      onSnapshot(query(col(eid, "shares"), where("from", "==", uid)), s => { st.out = {}; s.docs.forEach(d => st.out[d.data().to] = d.data().ig); done.out = true; push(); }, onErr);
+    },
+    async sendIg(eid, uid, to, ig) {
+      await setDoc(doc(db, "events", eid, "shares", `${uid}_${to}`), { from: uid, to, ig, createdAt: serverTimestamp() });
     },
     async sendSignal(eid, uid, to) {
       await setDoc(doc(db, "events", eid, "signals", `${uid}_${to}`), { from: uid, to, createdAt: serverTimestamp() });
@@ -335,8 +354,12 @@ function makeDemoApi() {
   ];
   const fakes = raw.map(([name, gender, interest, message, likesMe, c, side], i) =>
     ({ id: "f" + i, name, gender, interest, message, side, selfie: avatar(name, c), likesMe }));
+  // Instagram de mentira: Carmen lo manda nada más hacer match; Lucía y Alex, si les mandas el tuyo.
+  const IG = { f0: ["lucia.baila", "reply"], f2: ["carmen.mrtz", "eager"], f9: ["alex.flores", "reply"] };
   let mine = null; const sent = new Set(); let matches = [];
-  const L = { p: [], s: [], m: [] };
+  const igIn = {}, igOut = {};
+  const L = { p: [], s: [], m: [], sh: [] };
+  const emitSh = () => L.sh.forEach(f => f({ in: { ...igIn }, out: { ...igOut } }));
   const pub = ({ message, ...rest }) => { if (S.event?.kind !== "boda") delete rest.side; return rest; };
   const all = () => (mine ? [pub(mine), ...fakes.map(pub)] : fakes.map(pub));
   const emit = () => { L.p.forEach(f => f(all())); L.s.forEach(f => f([...sent])); L.m.forEach(f => f([...matches])); };
@@ -353,7 +376,13 @@ function makeDemoApi() {
     async getMyProfile() { return mine; },
     async getContact(e, id) { const f = fakes.find(x => x.id === id); return f ? { message: f.message } : null; },
     async saveProfile(e, u, d) { await wait(300); mine = { id: uid, ...d }; emit(); },
-    async deleteMe() { mine = null; sent.clear(); matches = []; emit(); },
+    async deleteMe() { mine = null; sent.clear(); matches = []; for (const k in igOut) delete igOut[k]; emit(); emitSh(); },
+    watchShares(e, u, cb) { L.sh.push(cb); cb({ in: { ...igIn }, out: { ...igOut } }); },
+    async sendIg(e, u, to, ig) {
+      await wait(300); igOut[to] = ig; emitSh();
+      const r = IG[to];
+      if (r && r[1] === "reply" && !igIn[to]) setTimeout(() => { igIn[to] = r[0]; emitSh(); }, 1800);
+    },
     watchProfiles(e, cb) { L.p.push(cb); cb(all()); return () => {}; },
     watchMySignals(e, u, cb) { L.s.push(cb); cb([...sent]); return () => {}; },
     watchMatches(e, u, cb) { L.m.push(cb); cb([...matches]); return () => {}; },
@@ -361,6 +390,8 @@ function makeDemoApi() {
       await wait(350); sent.add(to);
       const f = fakes.find(x => x.id === to);
       if (f?.likesMe) { matches.push({ id: [u, to].sort().join("_"), members: [u, to] }); }
+      const r = IG[to];
+      if (f?.likesMe && r && r[1] === "eager") setTimeout(() => { igIn[to] = r[0]; emitSh(); }, 2500);
       emit(); return !!f?.likesMe;
     }
   };
@@ -458,9 +489,66 @@ async function ensureContacts(force) {
   if (changed && S.view === "main" && S.tab === "matches") render();
 }
 function contactBlock(p, c) {
-  if (!c?.message) return `<p class="muted">No ha dejado mensaje: ¡a buscarle por la fiesta!</p>`;
+  if (!c?.message) return `<p class="muted small">No ha dejado mensaje.</p>`;
   return `<p class="muted small" style="margin:10px 0 4px">Esto te dice ${esc(p.name)}:</p><div class="hint" style="font-size:1.05rem;font-style:italic">“${esc(c.message)}”</div>`;
 }
+
+/* ─────────────── Instagram entre matches ─────────────── */
+// Acepta "@usuario", "usuario", "instagram.com/usuario" o el enlace completo. Devuelve "" si no es válido.
+function normIg(raw) {
+  let t = String(raw || "").trim().toLowerCase();
+  t = t.replace(/^https?:\/\//, "").replace(/^(www\.)?instagram\.com\//, "").replace(/^@/, "").split(/[/?#]/)[0];
+  return /^[a-z0-9._]{1,30}$/.test(t) ? t : "";
+}
+const igUrl = (h) => `https://instagram.com/${encodeURIComponent(h)}`;
+function myLastIg() { try { return localStorage.getItem("guino-ig") || ""; } catch { return ""; } }
+function igBlock(p, compact) {
+  const got = S.igIn[p.id], sent = S.igOut[p.id];
+  let h = "";
+  if (got) h += `<div class="igin"><span>📸 <b>${esc(p.name)}</b> te ha enviado su Instagram</span><a class="btn okb ${compact ? "small" : "block"}" data-ig-open href="${esc(igUrl(got))}" target="_blank" rel="noopener">@${esc(got)}</a></div>`;
+  if (sent) h += `<p class="small muted" style="margin:8px 0 0">✓ Le has enviado tu Instagram (@${esc(sent)})</p>`;
+  else h += `${!compact && !got ? `<p class="muted small" style="margin:12px 0 8px">Búscale por la fiesta o, si quieres, envíale tu Instagram para encontraros.</p>` : ""}<button class="btn ghost ${compact ? "small" : "block"}" data-ig-send="${esc(p.id)}" style="${compact ? "" : "margin-top:4px"}">📸 Enviarle mi Instagram</button>`;
+  return `<div class="igwrap" data-ig-for="${esc(p.id)}" data-compact="${compact ? 1 : 0}">${h}</div>`;
+}
+function refreshIg() {
+  document.querySelectorAll("[data-ig-for]").forEach(el => {
+    const p = profileById(el.dataset.igFor); if (!p) return;
+    el.outerHTML = igBlock(p, el.dataset.compact === "1");
+  });
+}
+function askIg(p) {
+  return new Promise(res => {
+    const o = document.createElement("div"); o.className = "overlay";
+    o.innerHTML = `<div class="modal"><h2 class="serif">Envía tu Instagram a ${esc(p.name)}</h2>
+      <p class="muted small">Solo lo verá ${esc(p.name)}. Si quiere, te mandará el suyo o te escribirá por allí.</p>
+      <input type="text" id="igin" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="60" placeholder="@tu_usuario" value="${esc(myLastIg() ? "@" + myLastIg() : "")}" style="text-align:center;margin-top:6px">
+      <div class="err" id="igerr"></div>
+      <div class="row" style="margin-top:8px"><button class="btn ghost" data-r="0">Cancelar</button><button class="btn" data-r="1">Enviar</button></div></div>`;
+    const close = (v) => { o.remove(); res(v); };
+    o.addEventListener("click", e => {
+      if (e.target === o) return close(null);
+      const b = e.target.closest("[data-r]"); if (!b) return;
+      if (b.dataset.r === "0") return close(null);
+      const h = normIg(o.querySelector("#igin").value);
+      if (!h) { o.querySelector("#igerr").textContent = "Ese usuario no parece válido (solo letras, números, puntos y _)."; return; }
+      close(h);
+    });
+    o.querySelector("#igin").addEventListener("keydown", e => { if (e.key === "Enter") o.querySelector("[data-r='1']").click(); });
+    document.body.appendChild(o);
+    setTimeout(() => o.querySelector("#igin").focus(), 50);
+  });
+}
+document.addEventListener("click", async (e) => {
+  const open = e.target.closest("[data-ig-open]");
+  if (open && DEMO) { e.preventDefault(); toast("En el modo demo no se abre Instagram."); return; }
+  const b = e.target.closest("[data-ig-send]"); if (!b) return;
+  const p = profileById(b.dataset.igSend); if (!p) return;
+  const h = await askIg(p); if (!h) return;
+  try { localStorage.setItem("guino-ig", h); } catch {}
+  b.disabled = true; b.textContent = "Enviando…";
+  try { await S.api.sendIg(S.eventId, S.uid, p.id, h); S.igOut[p.id] = h; refreshIg(); toast(`Instagram enviado a ${p.name}`); }
+  catch (err) { console.error(err); b.disabled = false; b.textContent = "📸 Enviarle mi Instagram"; toast("No se ha podido enviar. Inténtalo otra vez."); }
+});
 
 // Tocar una foto la amplía (para reconocer a la persona).
 document.addEventListener("click", (e) => {
@@ -514,6 +602,12 @@ function startMain() {
     S.api.watchProfiles(S.eventId, list => { S.profiles = list; if (S.view === "main") render(); checkNewMatches(); }, onErr);
     S.api.watchMySignals(S.eventId, S.uid, tos => { S.sentTo = new Set(tos); if (S.view === "main") render(); }, onErr);
     S.api.watchMatches(S.eventId, S.uid, ms => { S.matches = ms; if (S.view === "main") render(); checkNewMatches(); ensureContacts(false); }, onErr);
+    S.api.watchShares(S.eventId, S.uid, sh => {
+      const fresh = S.igReady ? Object.keys(sh.in).filter(k => !S.igIn[k]) : [];
+      S.igIn = sh.in; S.igOut = sh.out; S.igReady = true;
+      refreshIg();
+      fresh.forEach(k => { const p = profileById(k); if (p) { toast(`📸 ${p.name} te ha enviado su Instagram`); navigator.vibrate?.(60); } });
+    }, (e) => console.error(e));
     setInterval(() => { if (S.view === "main" && ended()) showEnded(); }, 30000);
   }
   render();
@@ -541,8 +635,9 @@ async function showMatch(p) {
     <h2 class="serif">${esc(p.name)} te ha devuelto el guiño</h2>
     ${p.side && hasSides() ? `<div class="sidetag">${esc(sideLabel(p.side))}</div>` : ""}
     ${contactBlock(p, c)}
-    <button class="btn block" style="margin-top:20px">¡Voy!</button></div>`;
-  o.querySelector("button").onclick = () => { o.remove(); S.matchBusy = false; checkNewMatches(); };
+    ${igBlock(p, false)}
+    <button class="btn block" style="margin-top:20px" data-close>¡Voy!</button></div>`;
+  o.querySelector("[data-close]").onclick = () => { o.remove(); S.matchBusy = false; checkNewMatches(); };
   document.body.appendChild(o);
 }
 
@@ -737,7 +832,7 @@ function renderMain(app, demo) {
     body += nMatches ? `<div class="card">${S.matches.map(m => {
       const p = profileById(otherOf(m));
       const c = S.contacts[m.members.find(x => x !== S.uid)];
-      return p ? `<div class="mrow"><img src="${safeImg(p.selfie)}" alt=""><div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-start"><b>${esc(p.name)}</b>${p.side && hasSides() ? `<span class="sidetag" style="margin:0">${esc(sideLabel(p.side, true))}</span>` : ""}${c?.message ? `<div class="hint" style="font-style:italic;margin:0">“${esc(c.message)}”</div>` : `<span class="muted small">No ha dejado mensaje: ¡a buscarle por la fiesta!</span>`}</div></div>`
+      return p ? `<div class="mrow"><img src="${safeImg(p.selfie)}" alt=""><div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-start"><b>${esc(p.name)}</b>${p.side && hasSides() ? `<span class="sidetag" style="margin:0">${esc(sideLabel(p.side, true))}</span>` : ""}${c?.message ? `<div class="hint" style="font-style:italic;margin:0">“${esc(c.message)}”</div>` : `<span class="muted small">No ha dejado mensaje.</span>`}${igBlock(p, true)}</div></div>`
         : `<div class="mrow"><div class="muted">Esta persona ha salido del radar.</div></div>`;
     }).join("")}</div>`
       : `<div class="empty"><div class="big">💌</div><p>Aún no hay matches.<br>Cuando alguien a quien has guiñado te devuelva el guiño, aparecerá aquí.</p></div>`;
