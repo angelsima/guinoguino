@@ -31,6 +31,8 @@
   .qr{margin-top:12px;padding:12px;background:#fff;border:1px dashed var(--line);border-radius:12px;display:inline-block}
   .warn{background:#FFF3C9;color:#6B5200;border-radius:12px;padding:12px 14px}
   .ev h2{margin:.1em 0}
+  .chk{display:flex;gap:10px;align-items:flex-start;font-weight:400;margin-top:14px;cursor:pointer}
+  .chk input{width:20px;height:20px;margin-top:3px;flex:none;accent-color:var(--accent)}
   .themes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
   .themes input{position:absolute;opacity:0}
   .themes label{margin:0;display:block;border:2px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;font-weight:600;background:#fff}
@@ -102,9 +104,12 @@ async function renderPanel(user) {
         <div><input type="radio" name="kind" id="k-boda" value="boda" checked><label for="k-boda">💍 Boda<small>Los invitados dicen de parte de quién vienen (de un novio, del otro o de los dos).</small></label></div>
         <div><input type="radio" name="kind" id="k-fiesta" value="fiesta"><label for="k-fiesta">🎉 Fiesta<small>Cualquier otro evento: cumpleaños, festival, fiesta privada…</small></label></div>
       </div>
-      <div id="couple" class="grid2">
-        <div><label for="s1">Nombre de un novio/a</label><input id="s1" maxlength="24" placeholder="Ana"></div>
-        <div><label for="s2">Nombre del otro novio/a</label><input id="s2" maxlength="24" placeholder="Luis"></div>
+      <div id="couple">
+        <div class="grid2">
+          <div><label for="s1">Nombre de un novio/a</label><input id="s1" maxlength="24" placeholder="Ana"></div>
+          <div><label for="s2">Nombre del otro novio/a</label><input id="s2" maxlength="24" placeholder="Luis"></div>
+        </div>
+        <label class="chk"><input type="checkbox" id="grp"> <span><b>Permitir match de grupo 🔥</b><br><small class="muted">Si 3 o más invitados que lo hayan activado se guiñan todos con todos, se les avisa. Pregúntaselo a los novios: hay bodas donde no encaja. En las fiestas está siempre activado.</small></span></label>
       </div>
       <div class="grid2">
         <div><label for="n">Nombre del evento (lo verán los invitados)</label><input id="n" placeholder="Boda de Ana y Luis"></div>
@@ -160,9 +165,9 @@ async function createEvent(user) {
   try {
     const theme = document.querySelector("input[name=theme]:checked")?.value === "neon" ? "neon" : "boda";
     const data = { name, kind, theme, active: true, endsAt: Timestamp.fromDate(endsAt), createdAt: serverTimestamp(), owner: user.uid };
-    if (kind === "boda") data.sides = sides;
+    if (kind === "boda") { data.sides = sides; data.groups = $("#grp").checked; } else data.groups = true;
     await setDoc(doc(db, "events", code), data);
-    msg.textContent = "¡Creado!"; ["n", "code", "s1", "s2"].forEach(id => $("#" + id).value = ""); delete $("#n").dataset.touched;
+    msg.textContent = "¡Creado!"; ["n", "code", "s1", "s2"].forEach(id => $("#" + id).value = ""); $("#grp").checked = false; delete $("#n").dataset.touched;
     loadEvents(user);
   } catch (e) {
     msg.textContent = e.code === "permission-denied" ? "Sin permiso: aún no eres admin (mira el aviso amarillo)." : "Error: " + (e.code || e.message);
@@ -187,12 +192,13 @@ async function loadEvents(user) {
     const open = ev.active !== false && ev.endsMs > Date.now();
     return `<div class="card ev" data-id="${esc(ev.id)}">
       <div class="row" style="justify-content:space-between"><h2>${esc(ev.name)}</h2><span class="tag ${open ? "on" : "off"}">${open ? "Abierto" : "Cerrado"}</span></div>
-      <p class="small muted">Cierra: ${esc(fmt(ev.endsMs))} · ${ev.kind === "fiesta" ? "Fiesta" : "Boda" + (Array.isArray(ev.sides) ? ` (${esc(ev.sides[0])} y ${esc(ev.sides[1])})` : "")} · Diseño: <b>${isNeon(ev) ? "Neón" : "Elegante"}</b> · <span class="stats">contando…</span></p>
+      <p class="small muted">Cierra: ${esc(fmt(ev.endsMs))} · ${ev.kind === "fiesta" ? "Fiesta" : "Boda" + (Array.isArray(ev.sides) ? ` (${esc(ev.sides[0])} y ${esc(ev.sides[1])})` : "")} · Diseño: <b>${isNeon(ev) ? "Neón" : "Elegante"}</b> · Match de grupo: <b>${groupsOn(ev) ? "sí" : "no"}</b> · <span class="stats">contando…</span></p>
       <p class="small">Enlace: <code>${esc(guestUrl(ev.id))}</code></p>
       <div class="row">
         <button class="btn ghost" data-a="copy">Copiar enlace</button>
         <button class="btn ghost" data-a="qr">Ver QR</button>
         <button class="btn ghost" data-a="poster">Imprimir cartel</button>
+        ${ev.kind === "fiesta" ? "" : `<button class="btn ghost" data-a="groups">${groupsOn(ev) ? "Quitar match de grupo" : "Permitir match de grupo"}</button>`}
         <button class="btn ghost" data-a="theme">Cambiar a ${isNeon(ev) ? "Elegante" : "Neón"}</button>
         <button class="btn ghost" data-a="toggle">${ev.active !== false ? "Cerrar radar" : "Reabrir radar"}</button>
         <button class="btn bad" data-a="wipe">Borrar fichas</button>
@@ -208,6 +214,7 @@ async function loadEvents(user) {
     if (a === "copy") { await navigator.clipboard.writeText(guestUrl(id)); b.textContent = "¡Copiado!"; }
     if (a === "qr") { const w = card.querySelector(".qrwrap"); if (w.innerHTML) { w.innerHTML = ""; return; } drawQR(w, id); }
     if (a === "poster") printPoster(ev);
+    if (a === "groups") { await updateDoc(doc(db, "events", id), { groups: !groupsOn(ev) }); loadEvents(user); }
     if (a === "theme") { await updateDoc(doc(db, "events", id), { theme: isNeon(ev) ? "boda" : "neon" }); loadEvents(user); }
     if (a === "toggle") { await updateDoc(doc(db, "events", id), { active: ev.active === false }); loadEvents(user); }
     if (a === "wipe" && confirm(`¿Borrar todas las fichas, guiños y matches de "${ev.name}"? No se puede deshacer.`)) { b.disabled = true; await wipe(id); countStats(id); b.disabled = false; }
@@ -229,7 +236,7 @@ async function wipe(id) {
   const profs = await getDocs(collection(db, "events", id, "profiles"));
   for (let i = 0; i < profs.docs.length; i += 400) {
     const batch = writeBatch(db);
-    profs.docs.slice(i, i + 400).forEach(d => batch.delete(doc(db, "events", id, "contacts", d.id)));
+    profs.docs.slice(i, i + 400).forEach(d => { batch.delete(doc(db, "events", id, "contacts", d.id)); batch.delete(doc(db, "events", id, "optins", d.id)); });
     await batch.commit();
   }
   for (const name of ["profiles", "signals", "matches", "shares"]) {
@@ -252,6 +259,7 @@ function drawQR(el, id, size = 240) {
 }
 
 const isNeon = (ev) => ev.theme === "neon" || ev.theme === "fiesta";
+const groupsOn = (ev) => ev.kind === "fiesta" || ev.groups === true;
 
 function posterDeco(theme) {
   if (theme === "neon") {
